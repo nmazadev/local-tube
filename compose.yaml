@@ -1,0 +1,13 @@
+services:
+  localtube:
+    build: .
+    image: localtube
+    # tini as PID 1: forwards signals and reaps processes (yt-dlp spawns ffmpeg and deno).
+    init: true
+    # Downloaded files on the host are owned by this user.
+    user: "${UID:-1000}:${GID:-1000}"
+    ports:
+      - "127.0.0.1:${PORT:-8080}:8080"
+    volumes:
+      - "${LIBRARY_DIR:?Set LIBRARY_DIR in .env to the folder where downloaded videos are stored}:/library"
+    restart: unless-stopped

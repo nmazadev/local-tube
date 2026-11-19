@@ -1,16 +1,32 @@
-from pathlib import Path
+import os
+from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import downloads, extractor, proxy
 
-STATIC = Path(__file__).parent / "static"
+PRODUCTION = os.environ.get("LOCALTUBE_ENV") == "production"
 
-app = FastAPI(title="LocalTube")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    proxy.open_client()
+    yield
+    downloads.shutdown()
+    await proxy.close_client()
+
+
+app = FastAPI(
+    title="LocalTube",
+    lifespan=lifespan,
+    # Interactive docs only in development.
+    docs_url=None if PRODUCTION else "/api/docs",
+    redoc_url=None,
+    openapi_url=None if PRODUCTION else "/api/openapi.json",
+)
 
 
 class ResolveRequest(BaseModel):
@@ -20,6 +36,11 @@ class ResolveRequest(BaseModel):
 class DownloadRequest(BaseModel):
     url: str
     q: int = 1080
+
+
+@app.get("/api/health")
+def health() -> dict:
+    return {"ok": True}
 
 
 @app.post("/api/resolve")
@@ -65,11 +86,6 @@ def delete_video(video_id: str) -> None:
         raise HTTPException(404, "Not in library")
 
 
-@app.get("/")
-def index():
-    return FileResponse(STATIC / "index.html")
-
-
+# In Docker nginx serves /media straight from disk; this mount is for local development.
 downloads.LIBRARY.mkdir(parents=True, exist_ok=True)
 app.mount("/media", StaticFiles(directory=downloads.LIBRARY), name="media")
-app.mount("/static", StaticFiles(directory=STATIC), name="static")

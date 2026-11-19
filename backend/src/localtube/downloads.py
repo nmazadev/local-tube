@@ -20,6 +20,10 @@ ID_RE = re.compile(r"^[\w-]+$")
 _pool = ThreadPoolExecutor(max_workers=2)
 _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
+_stopping = threading.Event()
+# Parsed .info.json summaries keyed by path -> (mtime, summary). These files are large
+# (every format is listed), so they're only re-read when they change.
+_summaries: dict[Path, tuple[float, dict]] = {}
 
 
 def _update(job_id: str, **fields) -> None:
@@ -29,6 +33,8 @@ def _update(job_id: str, **fields) -> None:
 
 def _run(job_id: str, url: str, max_height: int) -> None:
     def progress(d: dict) -> None:
+        if _stopping.is_set():
+            raise yt_dlp.utils.DownloadCancelled("Server shutting down")
         if d["status"] == "downloading":
             total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
             info = d.get("info_dict") or {}
@@ -101,24 +107,38 @@ def _files(video_id: str) -> list[Path]:
     return list(LIBRARY.glob(f"{video_id}.*")) if ID_RE.match(video_id) else []
 
 
+def _summary(info_path: Path) -> dict | None:
+    mtime = info_path.stat().st_mtime
+    cached = _summaries.get(info_path)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    try:
+        data = summary(json.loads(info_path.read_text()))
+    except (OSError, json.JSONDecodeError, KeyError):
+        return None
+    _summaries[info_path] = (mtime, data)
+    return data
+
+
 def library() -> list[dict]:
     if not LIBRARY.is_dir():
         return []
+    files = {f.name: f for f in LIBRARY.iterdir()}
     items = []
-    for info_path in LIBRARY.glob("*.info.json"):
-        video_id = info_path.name.removesuffix(".info.json")
-        files = _files(video_id)
+    for name, info_path in files.items():
+        if not name.endswith(".info.json"):
+            continue
+        video_id = name.removesuffix(".info.json")
         # Only `<id>.<ext>`: intermediate files look like `<id>.f137.mp4` or `<id>.temp.mp4`.
-        media = next((f for f in files if f.suffix in MEDIA_EXTS and f.stem == video_id), None)
+        media = next((files[n] for ext in MEDIA_EXTS if (n := video_id + ext) in files), None)
         if media is None:  # still downloading or merging
             continue
-        thumb = next((f for f in files if f.suffix in IMAGE_EXTS and f.stem == video_id), None)
-        try:
-            info = json.loads(info_path.read_text())
-        except (OSError, json.JSONDecodeError):
+        thumb = next((files[n] for ext in IMAGE_EXTS if (n := video_id + ext) in files), None)
+        info = _summary(info_path)
+        if info is None:
             continue
         items.append({
-            **summary(info),
+            **info,
             "media": f"/media/{media.name}",
             "thumbnail": f"/media/{thumb.name}" if thumb else info.get("thumbnail"),
             "added": media.stat().st_mtime,
@@ -134,4 +154,12 @@ def delete(video_id: str) -> bool:
     files = _files(video_id)
     for f in files:
         f.unlink(missing_ok=True)
+        _summaries.pop(f, None)
     return bool(files)
+
+
+def shutdown() -> None:
+    # Abort running downloads (their worker threads would otherwise block interpreter exit).
+    # The .part files stay; downloading the same video again resumes them.
+    _stopping.set()
+    _pool.shutdown(wait=False, cancel_futures=True)

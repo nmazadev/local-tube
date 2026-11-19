@@ -19,7 +19,16 @@ CHUNK = 10 << 20
 PASS_HEADERS = ("content-type", "content-length", "content-range", "accept-ranges", "last-modified", "etag")
 RANGE_RE = re.compile(r"bytes=(\d+)-(\d*)$")
 
-client = httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(30, read=60))
+client: httpx.AsyncClient  # created in the app lifespan, see open_client()
+
+
+def open_client() -> None:
+    global client
+    client = httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(30, read=60))
+
+
+async def close_client() -> None:
+    await client.aclose()
 
 
 def _capped_range(range_header: str | None, fmt: dict) -> str | None:

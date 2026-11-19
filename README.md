@@ -1,55 +1,159 @@
 # LocalTube
 
-Ad-free YouTube in your own browser. Paste a link, it streams (no ads, no tracking player);
-optionally save videos to a local library to watch offline.
+**Ad-free YouTube, served from your own machine.** Paste a YouTube link and LocalTube streams it in a
+clean, pixel-pastel player: no ads, no recommendations, no tracking player. Optionally save videos to a
+local library and watch them offline.
 
-Built on [yt-dlp](https://github.com/yt-dlp/yt-dlp) (the maintained successor of youtube-dl),
-FastAPI and a single vanilla-JS page.
+It's built on [yt-dlp](https://github.com/yt-dlp/yt-dlp), the maintained successor of youtube-dl, with a
+FastAPI backend and a React frontend. It runs as one small Docker container.
 
-## Run
+## Features
 
-Requires [uv](https://docs.astral.sh/uv/) and `ffmpeg` (used to merge downloads).
+- **Stream any YouTube video, ad-free**, in quality up to 4K, with instant seeking.
+- **Optional downloads** to a local library: toggle *Also download* or press *Download* while watching.
+  When the download finishes, playback switches to the local file without stopping.
+- **Offline library** with thumbnails and watch progress. Links you've already downloaded play from disk.
+- **Resume where you left off**, per video. Volume, speed and quality are remembered too.
+- **Chapters and clickable timestamps** from the video description. YouTube links in descriptions open in LocalTube.
+- **6 pixel-pastel themes**, each with light and dark versions, or following your system.
+- **YouTube-style keyboard shortcuts** and OS media-key support.
+- **Bookmarklet**: one click on any YouTube page opens that video in LocalTube.
+
+## Quick start (Docker)
+
+Requires Docker with Compose and BuildKit (`docker buildx`).
 
 ```sh
-uv run localtube            # http://127.0.0.1:8000
-uv run localtube --port 9000
+git clone <this repo> local-tube && cd local-tube
+cp .env.example .env     # set LIBRARY_DIR at least
+mkdir -p library         # create it yourself so it's owned by you, not root
+docker compose up -d --build
 ```
 
-Downloads go to `./library` (override with `LOCALTUBE_LIBRARY=/path/to/videos`).
+Open **http://127.0.0.1:8080**.
+
+| `.env` variable | Default | Meaning |
+| --- | --- | --- |
+| `LIBRARY_DIR` | *(required)* | Host folder where downloaded videos are stored. |
+| `PORT` | `8080` | Host port for the web UI (bound to 127.0.0.1 only). |
+| `UID` / `GID` | `1000` | User the container runs as, so downloads on the host belong to you (`id -u`, `id -g`). |
+
+To reach it from other devices on your network, change the port mapping in `compose.yaml` from
+`127.0.0.1:${PORT}:8080` to `${PORT}:8080`. There's no authentication, so only do this on a network you trust.
 
 ## Using it
 
-- Paste a YouTube link and press **Play**. It streams immediately.
-- **Also download** (off by default) also saves the video to the library. While watching, the
-  **Download** button does the same.
-- Library videos play from disk. Opening a link you already downloaded plays the local copy.
-- It remembers where you stopped in each video, plus your volume and quality.
-- **Bookmarklet**: drag the "Watch in LocalTube" button (bottom of the page) to your bookmarks
-  bar. On any YouTube video, click it to open that video in LocalTube.
+1. Browse YouTube as usual and copy a video link (or use the bookmarklet, below).
+2. Paste it into LocalTube and press **Play**.
 
-Keyboard: `space`/`k` play/pause · `j`/`l` ±10s · `←`/`→` ±5s · `↑`/`↓` volume · `m` mute ·
-`f` fullscreen · `0`–`9` jump to 0–90%.
+**Bookmarklet:** on the home page, drag **Watch in LocalTube** to your bookmarks bar. Clicking it on any
+YouTube video page opens that video in LocalTube instead.
+
+| Key | Action |
+| --- | --- |
+| `space` / `k` | Play / pause |
+| `j` / `l` | Back / forward 10 s |
+| `←` / `→` | Back / forward 5 s |
+| `↑` / `↓` | Volume |
+| `m` | Mute |
+| `f` | Fullscreen |
+| `0`–`9` | Jump to 0–90 % |
+
+**Themes:** the palette button (top right) picks one of Bubblegum, Lavender, Peach Sorbet, Matcha, Soda and
+Sunset, and light / dark / system mode. The choice is saved per browser.
+
+## Development
+
+Requirements: Node 24 (see `.nvmrc`), pnpm, [uv](https://docs.astral.sh/uv/) and ffmpeg. Run two terminals:
+
+```sh
+# API on :8000. Downloads go to backend/library (override with LOCALTUBE_LIBRARY=/path)
+cd backend && uv run localtube --reload
+
+# UI on :5173. Proxies /api and /media to :8000
+cd frontend && pnpm install && pnpm dev
+```
+
+Open http://localhost:5173. Interactive API docs are at http://127.0.0.1:8000/api/docs
+(disabled in production).
+
+```sh
+cd frontend
+pnpm build       # production build (vite + typecheck)
+pnpm lint        # oxlint
+pnpm typecheck   # tsc
+```
+
+### Project layout
+
+```
+backend/                  FastAPI + yt-dlp (Python 3.13, uv)
+  src/localtube/
+    app.py                routes and app lifespan
+    extractor.py          yt-dlp wrapper: metadata, format choice, stream URL cache
+    proxy.py              range-aware relay of YouTube's video/audio streams
+    downloads.py          background downloads and the library listing
+frontend/                 React 19 + TypeScript + Vite
+  src/
+    routes/               TanStack Router pages: / (library) and /watch?url=…
+    lib/player.ts         keeps the separate video and audio streams in sync
+    lib/theme.ts          palette and light/dark mode store
+    index.css             palettes and pixel primitives (Tailwind v4 + shadcn tokens)
+    components/ui/        shadcn/ui components, restyled pixel-pastel
+docker/                   nginx.conf and the container entrypoint
+Dockerfile, compose.yaml  one image: nginx + uvicorn
+```
 
 ## How it works
 
-- `extractor.py` asks yt-dlp for the video's direct stream URLs. yt-dlp needs a JS runtime to
-  solve YouTube's challenges; the `deno` PyPI package provides one, so nothing is installed system-wide.
-- Above 360p YouTube serves video and audio as separate streams. `proxy.py` relays each one with
-  HTTP Range support (in 10 MiB pieces, like yt-dlp does), and the page plays a `<video>` plus
-  a hidden `<audio>` kept in sync. This gives full quality (up to 4K) and instant seeking with no
-  transcoding.
-- Stream URLs expire after a few hours, so they are re-extracted automatically when stale or rejected.
-- `downloads.py` runs yt-dlp downloads in the background (up to 2 at a time), merging into mp4.
-
-## When YouTube breaks it
-
-YouTube changes things regularly. If videos stop resolving, update yt-dlp first:
-
-```sh
-uv lock --upgrade-package yt-dlp --upgrade-package yt-dlp-ejs && uv sync
+```
+browser ──► nginx :8080 ─┬─► /            React build (static)
+                         ├─► /media/…     downloaded files, straight from disk
+                         └─► /api/…  ──►  uvicorn :8000 (FastAPI) ──► yt-dlp ──► YouTube
 ```
 
-## Not yet
+- **Resolving:** the backend asks yt-dlp for a video's metadata and direct stream URLs, and caches them
+  (32 videos at most). URLs expire after a few hours and are re-extracted automatically. yt-dlp needs a
+  JavaScript runtime for YouTube's challenges; the `deno` package from PyPI provides it, so nothing is
+  installed system-wide.
+- **Streaming:** above 360p YouTube serves picture and sound as separate files. The backend relays each one
+  with HTTP Range support, in 10 MiB pieces like yt-dlp does. The frontend's `Player` plays a `<video>` and a
+  hidden `<audio>` and keeps them in lockstep: either side buffering holds the other, and drift is corrected.
+  You get full quality and instant seeking with no transcoding.
+- **Downloading:** yt-dlp runs in the background (two downloads at a time) and ffmpeg merges the result into an mp4.
+- **Production setup:**
+  - uvicorn runs with exactly one worker, on purpose: the stream cache and download jobs live in memory.
+  - It listens only inside the container, behind nginx, and shuts down within 5 s even with open streams.
+  - The image compiles a remux-only ffmpeg (~2 MB) instead of shipping a full build.
 
-Search, playlists/channels, live streams, subtitles, SponsorBlock (skipping sponsor segments
-inside videos), access from your phone over the LAN (`--host 0.0.0.0` works but is untested).
+### Adding a theme
+
+1. Add a `[data-theme="name"]` block and its `.dark` counterpart to `frontend/src/index.css`.
+2. Add an entry with swatches to `THEMES` in `frontend/src/lib/theme.ts`.
+
+## Keeping it working
+
+YouTube changes regularly. When videos stop loading, update yt-dlp and rebuild:
+
+```sh
+cd backend && uv lock --upgrade-package yt-dlp --upgrade-package yt-dlp-ejs && uv sync
+docker compose up -d --build
+```
+
+## Troubleshooting
+
+- **"This video is unavailable" or 403 errors on videos that work on YouTube:** update yt-dlp (above).
+- **Downloads fail with a permission error in Docker:** `LIBRARY_DIR` was created by Docker as root. Run
+  `sudo chown $(id -u):$(id -g) <dir>`, or delete it and create it yourself before `docker compose up`.
+- **`docker compose` says `LIBRARY_DIR` is missing:** create `.env` from `.env.example`.
+- **Dev backend fails with "address already in use":** another LocalTube backend is still running on :8000.
+
+## Roadmap
+
+Live streams, search, playlists and channels, subtitles, SponsorBlock (skipping sponsor segments inside videos).
+
+## Disclaimer
+
+LocalTube is a personal tool for watching videos on your own machine. Downloading may conflict with YouTube's
+Terms of Service, and videos remain the property of their creators. Use it responsibly and support the
+creators you watch.

@@ -3,14 +3,16 @@
 import re
 import threading
 import time
-from collections import defaultdict
-from dataclasses import dataclass
+from collections import OrderedDict
+from dataclasses import dataclass, field
 
 import deno
 import yt_dlp
 
 # googlevideo URLs expire after ~6h; re-extract well before that.
 CACHE_TTL = 4 * 3600
+# Each info dict is ~0.5-1 MB (hundreds of formats), so keep only the most recent videos.
+CACHE_SIZE = 32
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -39,10 +41,11 @@ def clean_error(exc: Exception) -> str:
 class Entry:
     info: dict
     fetched_at: float
+    lock: threading.Lock = field(default_factory=threading.Lock)
 
 
-_cache: dict[str, Entry] = {}
-_locks: defaultdict[str, threading.Lock] = defaultdict(threading.Lock)
+_cache: OrderedDict[str, Entry] = OrderedDict()
+_cache_lock = threading.Lock()
 
 
 def _extract(url: str) -> dict:
@@ -61,21 +64,28 @@ def _extract(url: str) -> dict:
 def resolve(url: str) -> dict:
     """Extract a URL (always fresh) and cache it by video id."""
     info = _extract(url)
-    _cache[info["id"]] = Entry(info, time.time())
+    with _cache_lock:
+        _cache[info["id"]] = Entry(info, time.time())
+        _cache.move_to_end(info["id"])
+        while len(_cache) > CACHE_SIZE:
+            _cache.popitem(last=False)
     return info
 
 
 def get(video_id: str, refresh: bool = False) -> dict:
     """Cached info for a previously resolved video, re-extracted when stale."""
-    with _locks[video_id]:
+    with _cache_lock:
         entry = _cache.get(video_id)
         if entry is None:
             raise KeyError(video_id)
-        if refresh or time.time() - entry.fetched_at > CACHE_TTL:
-            info = _extract(entry.info["webpage_url"])
-            # Two requests (video + audio) can hit an expired URL at once; the lock makes
-            # the second one reuse this extraction.
-            entry = _cache[video_id] = Entry(info, time.time())
+        _cache.move_to_end(video_id)
+    # Two requests (video + audio) can hit an expired URL at once; the per-entry lock makes
+    # the second one reuse this extraction.
+    with entry.lock:
+        stale = time.time() - entry.fetched_at > CACHE_TTL
+        if stale or (refresh and time.time() - entry.fetched_at > 5):
+            entry.info = _extract(entry.info["webpage_url"])
+            entry.fetched_at = time.time()
         return entry.info
 
 

@@ -1,0 +1,189 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/pixelify-sans";
+@import "@fontsource/press-start-2p";
+@import "@fontsource/vt323";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    /* Pixelify Sans for UI and body, Press Start 2P for headings/labels, VT323 for numbers. */
+    --font-sans: 'Pixelify Sans Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-heading: 'Press Start 2P', ui-monospace, monospace;
+    --font-mono: 'VT323', ui-monospace, monospace;
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --color-pixel-shadow: var(--pixel-shadow);
+    /* Pixel art has no rounded corners: every shadcn `rounded-*` derived from --radius is 0. */
+    --radius-sm: 0px;
+    --radius-md: 0px;
+    --radius-lg: 0px;
+    --radius-xl: 0px;
+    --radius-2xl: 0px;
+    --radius-3xl: 0px;
+    --radius-4xl: 0px;
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Palettes. Each sets the raw --p-* colors for light, and again under .dark. The theme comes
+ * from <html data-theme="…"> (set before first paint in index.html); keep the list in sync
+ * with src/lib/theme.ts.
+ * ---------------------------------------------------------------------------------------- */
+
+/* Bubblegum (default) */
+:root, [data-theme="bubblegum"] {
+    --p-bg: #FBF5FF; --p-card: #FFFFFF; --p-fg: #33294F; --p-muted-fg: #665A86; --p-muted: #EEE7F8;
+    --p-outline: #33294F; --p-grid: #F1E7FF; --p-shadow: rgb(51 41 79 / 22%);
+    --p-primary: #A6EBC9; --p-secondary: #FFC2DD; --p-accent: #FFEFA3; --p-ring: #C3ADFF; --p-danger: #FFA8B5; --p-on: #33294F;
+}
+.dark, [data-theme="bubblegum"].dark, [data-theme="bubblegum"] .dark {
+    --p-bg: #1C1730; --p-card: #2A2342; --p-fg: #F6F0FF; --p-muted-fg: #BDB1DE; --p-muted: #3A3158;
+    --p-outline: #E3D7FF; --p-grid: #241E3B; --p-shadow: #0B0814;
+}
+
+/* Lavender */
+[data-theme="lavender"] {
+    --p-bg: #F7F5FF; --p-card: #FFFFFF; --p-fg: #2E2A5A; --p-muted-fg: #5F5A8C; --p-muted: #ECE8FB;
+    --p-outline: #2E2A5A; --p-grid: #EAE5FF; --p-shadow: rgb(46 42 90 / 22%);
+    --p-primary: #CDB8FF; --p-secondary: #FFD3B6; --p-accent: #B8F0E0; --p-ring: #8FB3FF; --p-danger: #FFA8B5; --p-on: #2E2A5A;
+}
+[data-theme="lavender"].dark, [data-theme="lavender"] .dark {
+    --p-bg: #17162E; --p-card: #24223F; --p-fg: #F2F0FF; --p-muted-fg: #B4AEDC; --p-muted: #35325A;
+    --p-outline: #D6CCFF; --p-grid: #1F1D3A; --p-shadow: #08071A;
+}
+
+/* Peach Sorbet */
+[data-theme="peach"] {
+    --p-bg: #FFF7F1; --p-card: #FFFFFF; --p-fg: #4A2B26; --p-muted-fg: #7A5650; --p-muted: #F8E9E0;
+    --p-outline: #4A2B26; --p-grid: #FBEADF; --p-shadow: rgb(74 43 38 / 22%);
+    --p-primary: #FFC2A3; --p-secondary: #BFE3FF; --p-accent: #FFF0A3; --p-ring: #FF9FBC; --p-danger: #FF9EA8; --p-on: #4A2B26;
+}
+[data-theme="peach"].dark, [data-theme="peach"] .dark {
+    --p-bg: #231816; --p-card: #33231F; --p-fg: #FFF3EC; --p-muted-fg: #D9BCB2; --p-muted: #4A3530;
+    --p-outline: #FFD9C7; --p-grid: #2C1F1C; --p-shadow: #0F0907;
+}
+
+/* Matcha */
+[data-theme="matcha"] {
+    --p-bg: #F4FAEE; --p-card: #FFFFFF; --p-fg: #24392A; --p-muted-fg: #4F6B55; --p-muted: #E4F0DA;
+    --p-outline: #24392A; --p-grid: #E6F2DC; --p-shadow: rgb(36 57 42 / 22%);
+    --p-primary: #B5E8A0; --p-secondary: #F6E3A6; --p-accent: #FFD8A8; --p-ring: #8FD4BE; --p-danger: #FFAFA8; --p-on: #24392A;
+}
+[data-theme="matcha"].dark, [data-theme="matcha"] .dark {
+    --p-bg: #142019; --p-card: #1F2E24; --p-fg: #EFF8EA; --p-muted-fg: #AFC9B3; --p-muted: #2E4234;
+    --p-outline: #CDEBC0; --p-grid: #1A281F; --p-shadow: #070C09;
+}
+
+/* Soda */
+[data-theme="soda"] {
+    --p-bg: #F3F9FF; --p-card: #FFFFFF; --p-fg: #1E2F4D; --p-muted-fg: #4E6385; --p-muted: #E2EEFA;
+    --p-outline: #1E2F4D; --p-grid: #E2EFFC; --p-shadow: rgb(30 47 77 / 22%);
+    --p-primary: #A8DBFF; --p-secondary: #FFC6E5; --p-accent: #FFF0A8; --p-ring: #9DB2FF; --p-danger: #FFA8B5; --p-on: #1E2F4D;
+}
+[data-theme="soda"].dark, [data-theme="soda"] .dark {
+    --p-bg: #121B2E; --p-card: #1C2840; --p-fg: #EEF5FF; --p-muted-fg: #AABCD9; --p-muted: #2B3A57;
+    --p-outline: #C9E2FF; --p-grid: #18233A; --p-shadow: #050913;
+}
+
+/* Sunset */
+[data-theme="sunset"] {
+    --p-bg: #FFF5F7; --p-card: #FFFFFF; --p-fg: #3E2343; --p-muted-fg: #765579; --p-muted: #F7E6EE;
+    --p-outline: #3E2343; --p-grid: #FCE6EE; --p-shadow: rgb(62 35 67 / 22%);
+    --p-primary: #FFB8D0; --p-secondary: #FFD9A0; --p-accent: #C9B8FF; --p-ring: #FF9A8A; --p-danger: #FF9AA6; --p-on: #3E2343;
+}
+[data-theme="sunset"].dark, [data-theme="sunset"] .dark {
+    --p-bg: #22142A; --p-card: #321F3B; --p-fg: #FFF0F6; --p-muted-fg: #D5B5D6; --p-muted: #4A3053;
+    --p-outline: #FFD3E4; --p-grid: #2A1933; --p-shadow: #0D060F;
+}
+
+/* Raw palette → shadcn tokens. Declared on .dark too: custom properties resolve where they're
+ * declared, so the always-dark player overlay needs its own mapping to pick up the dark colors. */
+:root, .dark {
+    --background: var(--p-bg);
+    --foreground: var(--p-fg);
+    --card: var(--p-card);
+    --card-foreground: var(--p-fg);
+    --popover: var(--p-card);
+    --popover-foreground: var(--p-fg);
+    --primary: var(--p-primary);
+    --primary-foreground: var(--p-on);
+    --secondary: var(--p-secondary);
+    --secondary-foreground: var(--p-on);
+    --accent: var(--p-accent);
+    --accent-foreground: var(--p-on);
+    --muted: var(--p-muted);
+    --muted-foreground: var(--p-muted-fg);
+    --destructive: var(--p-danger);
+    --destructive-foreground: var(--p-on);
+    --border: var(--p-outline);
+    --input: var(--p-outline);
+    --ring: var(--p-ring);
+    --pixel-shadow: var(--p-shadow);
+    --pixel-grid: var(--p-grid);
+    --radius: 0px;
+    color-scheme: light;
+    /* The notched 3px outline: four offset shadows leave the corners empty, like pixel art. */
+    --pixel-outline: 0 -3px 0 0 var(--border), 0 3px 0 0 var(--border), -3px 0 0 0 var(--border), 3px 0 0 0 var(--border);
+}
+
+.dark {
+    color-scheme: dark;
+}
+
+/* Pixel primitives. They own box-shadow, so focus uses outline (see Button) instead of ring. */
+@utility pixel-box {
+    box-shadow: var(--pixel-outline);
+}
+@utility pixel-lift {
+    box-shadow: var(--pixel-outline), 6px 6px 0 0 var(--pixel-shadow);
+}
+@utility pixel-press {
+    box-shadow: var(--pixel-outline), inset 3px 3px 0 0 var(--pixel-shadow);
+}
+/* Chunky segmented bar: `segmented` with a color var, e.g. [--seg:var(--primary)]. */
+@utility segmented {
+    background-image: repeating-linear-gradient(90deg, var(--seg, currentColor) 0 10px, transparent 10px 12px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring;
+  }
+  html {
+    @apply font-sans;
+    font-size: 17px;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* Graph-paper background. */
+    background-image: linear-gradient(var(--pixel-grid) 2px, transparent 2px), linear-gradient(90deg, var(--pixel-grid) 2px, transparent 2px);
+    background-size: 24px 24px;
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  svg[data-pixel] {
+    shape-rendering: crispEdges;
+  }
+}
