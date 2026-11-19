@@ -2,7 +2,9 @@
 # Needs BuildKit (docker buildx) for the cache mounts.
 
 # ---------- frontend: static build ----------
-FROM node:24-slim AS frontend
+# Plain JS/CSS output, so it's built once on the build machine's own platform even
+# when the image is built for several.
+FROM --platform=$BUILDPLATFORM node:24-slim AS frontend
 WORKDIR /src
 RUN corepack enable
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
@@ -57,6 +59,9 @@ COPY --from=backend /app/.venv /app/.venv
 COPY --from=frontend /src/dist /app/frontend
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY --chmod=755 docker/entrypoint.sh /app/entrypoint.sh
+# Owned by the default user, so a volume Docker creates here (no folder mounted, e.g. from
+# Docker Desktop) is writable.
+RUN mkdir /library && chown 1000:1000 /library
 
 # The container runs as an arbitrary non-root UID (see compose.yaml), so every
 # cache goes to /tmp: yt-dlp's player cache, deno's dir, nginx temp files.

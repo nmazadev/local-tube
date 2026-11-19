@@ -19,7 +19,39 @@ FastAPI backend and a React frontend. It runs as one small Docker container.
 - **YouTube-style keyboard shortcuts** and OS media-key support.
 - **Bookmarklet**: one click on any YouTube page opens that video in LocalTube.
 
-## Quick start (Docker)
+## Run the prebuilt image
+
+Every push to `main` publishes a ready-made image for Intel/AMD and ARM machines:
+**`ghcr.io/nmazadev/local-tube:latest`**. There's nothing to build.
+
+### Docker Desktop (Windows, macOS)
+
+1. Search for `ghcr.io/nmazadev/local-tube` in Docker Desktop's top search bar (or run
+   `docker pull ghcr.io/nmazadev/local-tube:latest` in a terminal) and pull the `latest` tag.
+2. Go to **Images**, find `ghcr.io/nmazadev/local-tube`, press **Run** and open **Optional settings**:
+   - **Host port:** `8080`
+   - **Volumes:** *Host path* = a folder for your videos (for example `C:\Users\<you>\Videos\LocalTube`),
+     *Container path* = `/library`. Skip this and Docker keeps the videos in its own storage instead.
+3. Press **Run** and open **http://localhost:8080**.
+
+To update later, pull `latest` again, delete the old container and run the new image with the same
+settings. Your videos stay in the folder.
+
+Docker Desktop makes the port reachable from other devices on your network too. There's no login,
+so only use it on a network you trust.
+
+### Command line
+
+```sh
+docker run -d --name localtube --restart unless-stopped \
+  -p 127.0.0.1:8080:8080 -v "$HOME/Videos/LocalTube:/library" \
+  ghcr.io/nmazadev/local-tube:latest
+```
+
+Update it with `docker pull ghcr.io/nmazadev/local-tube:latest`, then remove the container and run the
+command above again.
+
+## Build it yourself (Docker)
 
 Requires Docker with Compose and BuildKit (`docker buildx`).
 
