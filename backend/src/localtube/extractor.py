@@ -72,21 +72,25 @@ def resolve(url: str) -> dict:
     return info
 
 
-def get(video_id: str, refresh: bool = False) -> dict:
-    """Cached info for a previously resolved video, re-extracted when stale."""
+def get(video_id: str, rejected: float | None = None) -> tuple[dict, float]:
+    """Cached info for a previously resolved video and when it was extracted.
+
+    Re-extracts when stale, or when `rejected` is the extraction time of URLs that
+    YouTube refused (unless another request has already refreshed them since).
+    """
     with _cache_lock:
         entry = _cache.get(video_id)
         if entry is None:
             raise KeyError(video_id)
         _cache.move_to_end(video_id)
-    # Two requests (video + audio) can hit an expired URL at once; the per-entry lock makes
-    # the second one reuse this extraction.
+    # Two requests (video + audio) can hit a refused URL at once; the per-entry lock makes
+    # the second one reuse the first one's extraction.
     with entry.lock:
         stale = time.time() - entry.fetched_at > CACHE_TTL
-        if stale or (refresh and time.time() - entry.fetched_at > 5):
+        if stale or (rejected is not None and entry.fetched_at <= rejected):
             entry.info = _extract(entry.info["webpage_url"])
             entry.fetched_at = time.time()
-        return entry.info
+        return entry.info, entry.fetched_at
 
 
 # Lower is better: avc1 is hardware-decoded almost everywhere, vp9 is needed above 1080p.

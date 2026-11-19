@@ -12,7 +12,7 @@ COPY frontend/ ./
 RUN pnpm build
 
 # ---------- backend: virtualenv with the app installed ----------
-FROM ghcr.io/astral-sh/uv:python3.13-trixie-slim AS backend
+FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS backend
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=0
 WORKDIR /app
 # Dependencies first, so code changes don't reinstall them.
@@ -47,7 +47,7 @@ RUN ./configure \
     && strip /opt/ffmpeg/bin/ffmpeg
 
 # ---------- runtime ----------
-FROM python:3.13-slim-trixie
+FROM python:3.14-slim-trixie
 RUN apt-get update \
     && apt-get install -y --no-install-recommends nginx \
     && rm -rf /var/lib/apt/lists/* /etc/nginx/sites-enabled /etc/nginx/conf.d

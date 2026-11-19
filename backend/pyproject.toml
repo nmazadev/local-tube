@@ -5,7 +5,7 @@ description = "Ad-free local YouTube player built on yt-dlp"
 authors = [
     { name = "Nicolas Maza", email = "nicolas.maza@nmaza.dev" }
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "deno>=2.9.8",
     "fastapi>=0.165.0",

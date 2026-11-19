@@ -87,7 +87,7 @@ pnpm typecheck   # tsc
 ### Project layout
 
 ```
-backend/                  FastAPI + yt-dlp (Python 3.13, uv)
+backend/                  FastAPI + yt-dlp (Python 3.14, uv)
   src/localtube/
     app.py                routes and app lifespan
     extractor.py          yt-dlp wrapper: metadata, format choice, stream URL cache

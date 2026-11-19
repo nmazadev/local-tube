@@ -56,9 +56,10 @@ async def _open(fmt: dict, range_header: str | None) -> httpx.Response:
 
 async def stream(video_id: str, kind: str, max_height: int, range_header: str | None) -> StreamingResponse:
     upstream = None
+    rejected = None
     for attempt in range(2):
         try:
-            info = await run_in_threadpool(extractor.get, video_id, attempt > 0)
+            info, fetched_at = await run_in_threadpool(extractor.get, video_id, rejected)
             fmt = extractor.pick(info, max_height).get(kind)
         except KeyError:
             raise HTTPException(404, "Unknown video, resolve it first")
@@ -67,13 +68,15 @@ async def stream(video_id: str, kind: str, max_height: int, range_header: str | 
         if fmt is None:
             raise HTTPException(404, f"No {kind} stream for this video")
         upstream = await _open(fmt, range_header)
-        # 403/410 usually means the signed URL expired: re-extract once and retry.
+        # 403/410: the signed URL expired or YouTube refused it; re-extract once and retry.
         if upstream.status_code in (403, 410) and attempt == 0:
             await upstream.aclose()
+            rejected = fetched_at
             continue
         break
 
-    if upstream.status_code >= 400:
+    # 416 (range past the end) is a valid answer for the browser; other errors are ours.
+    if upstream.status_code >= 400 and upstream.status_code != 416:
         await upstream.aclose()
         raise HTTPException(502, f"Upstream returned {upstream.status_code}")
     headers = {k: v for k in PASS_HEADERS if (v := upstream.headers.get(k))}
