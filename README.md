@@ -24,7 +24,7 @@ FastAPI backend and a React frontend. It runs as one small Docker container.
 Requires Docker with Compose and BuildKit (`docker buildx`).
 
 ```sh
-git clone <this repo> local-tube && cd local-tube
+git clone https://github.com/nmazadev/local-tube.git && cd local-tube
 cp .env.example .env     # set LIBRARY_DIR at least
 mkdir -p library         # create it yourself so it's owned by you, not root
 docker compose up -d --build
