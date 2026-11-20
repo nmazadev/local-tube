@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { sourcesFor, type Playable } from '@/lib/api'
 import { positions, storage } from '@/lib/storage'
 import { cn } from '@/lib/utils'
-import { useFullscreen, useIdle, useKeyboardShortcuts, useMediaSession, usePersistence } from './hooks'
+import { useFullscreen, useIdle, useKeyboardShortcuts, useMarkWatched, useMediaSession, usePersistence } from './hooks'
 import { usePlayer, usePlayerState } from './player-context'
 import { PlayerControls } from './player-controls'
 
@@ -14,8 +14,11 @@ function pickQuality(qualities: number[], preferred: number): number | null {
   return qualities.filter((h) => h <= preferred).at(-1) ?? qualities[0]
 }
 
-/** Render with `key={video.id}`: a new video gets a fresh player. */
-export function VideoPlayer({ video }: { video: Playable }) {
+/**
+ * Render with `key={video.id}`: a new video gets a fresh player. `startAt` (from a link's
+ * timestamp) overrides the saved position, and seeks when it changes later.
+ */
+export function VideoPlayer({ video, startAt = null }: { video: Playable; startAt?: number | null }) {
   const player = usePlayer()
   const { playing, buffering, error } = usePlayerState()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -30,6 +33,7 @@ export function VideoPlayer({ video }: { video: Playable }) {
   useKeyboardShortcuts(player, toggleFullscreen)
   usePersistence(player, video.id)
   useMediaSession(player, video)
+  useMarkWatched(player, video.id)
 
   useEffect(() => player.attach(videoRef.current!, audioRef.current!), [player])
 
@@ -37,9 +41,14 @@ export function VideoPlayer({ video }: { video: Playable }) {
   // (quality switch, or the download finishing) at the current time and play state.
   const { video: videoSrc, audio: audioSrc } = sourcesFor(video, quality ?? 1080)
   const loaded = useRef(false)
-  const [resumeAt] = useState(() => positions.resumeAt(video.id, video.duration))
+  const [resumeAt] = useState(() => startAt ?? positions.resumeAt(video.id, video.duration))
   // Bumped by "Retry" to reload the same sources.
   const [attempt, setAttempt] = useState(0)
+  // Declared before the load effect, so it only acts on later changes (the same video pasted
+  // again with another timestamp).
+  useEffect(() => {
+    if (loaded.current && startAt != null) player.seek(startAt)
+  }, [player, startAt])
   useEffect(() => {
     const state = player.getState()
     player.load({

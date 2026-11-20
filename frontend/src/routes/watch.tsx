@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { VideoInfo } from '@/components/video-info'
 import type { Playable } from '@/lib/api'
 import { libraryQuery, resolveQuery } from '@/lib/queries'
+import { startOf, videoIdOf, withoutStart } from '@/lib/youtube'
 
 export const Route = createFileRoute('/watch')({
   validateSearch: (search: Record<string, unknown>): { url: string } => ({
@@ -23,11 +24,23 @@ export const Route = createFileRoute('/watch')({
 
 function WatchPage() {
   const { url } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  // A link's start time (`&t=1m30s`) only picks where playback starts; it's the same video.
+  const start = startOf(url)
+  const cleanUrl = withoutStart(url)
+  const id = videoIdOf(url)
   const library = useQuery(libraryQuery)
   // Already downloaded: play from disk without asking YouTube at all.
-  const local = library.data?.find((i) => i.url === url)
-  const resolved = useQuery({ ...resolveQuery(url), enabled: library.isFetched && !local })
+  const local = library.data?.find((i) => (id ? i.id === id : i.url === cleanUrl))
+  const resolved = useQuery({ ...resolveQuery(cleanUrl), enabled: library.isFetched && !local })
   const video: Playable | undefined = local ?? resolved.data
+
+  // Once the player has taken the start time, drop it from the address so a reload
+  // resumes from the saved position instead of jumping back.
+  const ready = !!video
+  useEffect(() => {
+    if (ready && start != null) void navigate({ search: { url: cleanUrl }, replace: true })
+  }, [ready, start, cleanUrl, navigate])
 
   useEffect(() => {
     document.title = video?.title ? `${video.title} · LocalTube` : 'LocalTube'
@@ -49,7 +62,7 @@ function WatchPage() {
       ) : video ? (
         <PlayerProvider key={video.id}>
           <section>
-            <VideoPlayer video={video} />
+            <VideoPlayer video={video} startAt={start} />
             <div className="px-4 sm:px-0">
               <VideoInfo video={video} />
             </div>

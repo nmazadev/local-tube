@@ -20,6 +20,12 @@ const PATHS = {
   monitor: 'M1 1h8v6H1z M2 2v4h6V2z M4 7h2v1H4z M3 8h4v1H3z',
   loader: 'M4 0h2v2H4z M8 4h2v2H8z M4 8h2v2H4z M0 4h2v2H0z',
   alert: 'M4 1h2v1h1v2h1v2h1v3H1V6h1V4h1V2h1z M4 3v3h2V3z M4 7v1h2V7z',
+  heart: 'M1 1h3v1H1z M6 1h3v1H6z M0 2h10v3H0z M1 5h8v1H1z M2 6h6v1H2z M3 7h4v1H3z M4 8h2v1H4z',
+  heartOutline:
+    'M1 1h3v1H1z M6 1h3v1H6z M0 2h1v1H0z M4 2h2v1H4z M9 2h1v1H9z M0 3h1v2H0z M9 3h1v2H9z M1 5h1v1H1z M8 5h1v1H8z M2 6h1v1H2z M7 6h1v1H7z M3 7h1v1H3z M6 7h1v1H6z M4 8h2v1H4z',
+  gear: 'M4 0h2v1H4z M1 1h1v1H1z M3 1h4v1H3z M8 1h1v1H8z M2 2h6v1H2z M1 3h3v1H1z M6 3h3v1H6z M0 4h3v2H0z M7 4h3v2H7z M1 6h3v1H1z M6 6h3v1H6z M2 7h6v1H2z M1 8h1v1H1z M3 8h4v1H3z M8 8h1v1H8z M4 9h2v1H4z',
+  retry: 'M3 1h4v1H3z M8 1h1v1H8z M2 2h1v1H2z M7 2h2v1H7z M1 3h1v4H1z M6 3h3v1H6z M8 5h1v2H8z M2 7h1v1H2z M7 7h1v1H7z M3 8h4v1H3z',
+  upload: 'M4 1h2v1H4z M3 2h4v1H3z M2 3h6v1H2z M4 4h2v3H4z M1 8h8v1H1z',
 } as const
 
 export type PixelIconName = keyof typeof PATHS

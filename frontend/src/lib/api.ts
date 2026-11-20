@@ -34,12 +34,14 @@ export interface LibraryItem extends VideoSummary {
 /** Something the player can show: a stream to resolve, or a file on disk. */
 export type Playable = ResolvedVideo | LibraryItem
 
-export type JobStatus = 'queued' | 'downloading' | 'processing' | 'done' | 'error'
+export type JobStatus = 'queued' | 'downloading' | 'processing' | 'retrying' | 'done' | 'error' | 'cancelled'
 
 export interface DownloadJob {
   job_id: string
   url: string
   status: JobStatus
+  /** 1, or 2 on the automatic retry. */
+  attempt: number
   stage?: string | null
   progress: number | null
   speed?: number | null
@@ -49,7 +51,17 @@ export interface DownloadJob {
   error?: string
 }
 
-export const isActiveJob = (j: DownloadJob) => j.status === 'queued' || j.status === 'downloading' || j.status === 'processing'
+export const isActiveJob = (j: DownloadJob) =>
+  j.status === 'queued' || j.status === 'downloading' || j.status === 'processing' || j.status === 'retrying'
+
+/** The YouTube account connected through cookies (backend `account.status`). */
+export interface Account {
+  connected: boolean
+  /** Cookies are saved but YouTube no longer accepts them. */
+  expired: boolean
+  name: string | null
+  mark_watched: boolean
+}
 
 async function request<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, ...rest } = init
@@ -78,6 +90,17 @@ export const api = {
   downloads: () => request<DownloadJob[]>('/api/downloads'),
   startDownload: (url: string, q: number) => request<DownloadJob>('/api/downloads', { method: 'POST', json: { url, q } }),
   clearDownloads: () => request<null>('/api/downloads', { method: 'DELETE' }),
+  cancelDownload: (id: string) => request<DownloadJob>(`/api/downloads/${id}`, { method: 'DELETE' }),
+  retryDownload: (id: string) => request<DownloadJob>(`/api/downloads/${id}/retry`, { method: 'POST' }),
+  account: () => request<Account>('/api/account'),
+  updateAccount: (settings: { mark_watched: boolean }) => request<Account>('/api/account', { method: 'PATCH', json: settings }),
+  uploadCookies: (text: string) =>
+    request<Account>('/api/account/cookies', { method: 'PUT', body: text, headers: { 'content-type': 'text/plain' } }),
+  removeCookies: () => request<Account>('/api/account/cookies', { method: 'DELETE' }),
+  liked: (id: string) => request<{ liked: boolean }>(`/api/account/like/${encodeURIComponent(id)}`),
+  setLiked: (id: string, liked: boolean) =>
+    request<{ liked: boolean }>(`/api/account/like/${encodeURIComponent(id)}`, { method: 'PUT', json: { liked } }),
+  markWatched: (id: string) => request<null>(`/api/account/watched/${encodeURIComponent(id)}`, { method: 'POST' }),
 }
 
 /** Media URLs for a video at a given max height. */

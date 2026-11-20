@@ -3,6 +3,7 @@ import { createRootRoute, Link, Outlet, useSearch } from '@tanstack/react-router
 import { PixelIcon } from '@/components/pixel-icon'
 import { ThemeMenu } from '@/components/theme-menu'
 import { UrlForm } from '@/components/url-form'
+import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/sonner'
 import { useLibraryRefreshOnDownload } from '@/lib/queries'
 
@@ -25,7 +26,12 @@ function RootLayout() {
           </Link>
           {/* Remount on navigation so the field shows the current video's link. */}
           <UrlForm key={currentUrl} initialUrl={currentUrl ?? ''} />
-          <div className="max-sm:order-1 max-sm:ml-auto">
+          <div className="flex gap-4 max-sm:order-1 max-sm:ml-auto">
+            <Button variant="outline" size="icon" asChild>
+              <Link to="/settings" aria-label="Settings">
+                <PixelIcon name="gear" className="size-5" />
+              </Link>
+            </Button>
             <ThemeMenu />
           </div>
         </div>

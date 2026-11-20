@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react'
-import type { Playable } from '@/lib/api'
+import { useQuery } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { api, type Playable } from '@/lib/api'
 import type { Player } from '@/lib/player'
+import { accountQuery } from '@/lib/queries'
 import { positions, storage } from '@/lib/storage'
 
 /** True after the mouse has been still over `ref` for a while (only while `active`). */
@@ -136,4 +139,25 @@ export function useMediaSession(player: Player, video: Playable) {
       for (const a of ['play', 'pause', 'seekbackward', 'seekforward', 'seekto'] as const) ms.setActionHandler(a, null)
     }
   }, [player, video])
+}
+
+/** Marks the video watched on YouTube (when an account is connected and the setting is on)
+ * once playback reaches 90%. At most once per page. */
+export function useMarkWatched(player: Player, videoId: string) {
+  const { data: account } = useQuery(accountQuery)
+  const enabled = !!account?.connected && account.mark_watched
+  useEffect(() => {
+    if (!enabled) return
+    let done = false
+    const unsubscribe = player.subscribe(() => {
+      const { currentTime, duration } = player.getState()
+      if (done || !duration || currentTime < duration * 0.9) return
+      done = true
+      api.markWatched(videoId).then(
+        () => toast.success('Marked as watched on YouTube'),
+        (e: Error) => toast.error(`Couldn’t mark as watched on YouTube: ${e.message}`),
+      )
+    })
+    return unsubscribe
+  }, [player, videoId, enabled])
 }

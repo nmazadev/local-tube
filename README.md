@@ -11,13 +11,16 @@ FastAPI backend and a React frontend. It runs as one small Docker container.
 
 - **Stream any YouTube video, ad-free**, in quality up to 4K, with instant seeking.
 - **Optional downloads** to a local library: toggle *Also download* or press *Download* while watching.
-  When the download finishes, playback switches to the local file without stopping.
+  When the download finishes, playback switches to the local file without stopping. Downloads retry once on
+  failure, can be cancelled or retried, and pick up where they left off after a restart.
+- **Timestamped links**: `&t=1m30s`, `?t=90` and `#t=90` start playback at that point.
+- **Your YouTube account (optional)**: like videos and add them to your YouTube history as watched.
 - **Offline library** with thumbnails and watch progress. Links you've already downloaded play from disk.
 - **Resume where you left off**, per video. Volume, speed and quality are remembered too.
 - **Chapters and clickable timestamps** from the video description. YouTube links in descriptions open in LocalTube.
 - **6 pixel-pastel themes**, each with light and dark versions, or following your system.
 - **YouTube-style keyboard shortcuts** and OS media-key support.
-- **Bookmarklet**: one click on any YouTube page opens that video in LocalTube.
+- **Bookmarklet**: one click on any YouTube page continues that video in LocalTube, from the same moment.
 
 ## Run the prebuilt image
 
@@ -94,6 +97,19 @@ YouTube video page opens that video in LocalTube instead.
 **Themes:** the palette button (top right) picks one of Bubblegum, Lavender, Peach Sorbet, Matcha, Soda and
 Sunset, and light / dark / system mode. The choice is saved per browser.
 
+### YouTube account (optional)
+
+Connect your account to get a **Like** button on every video and to have videos you finish (90% watched) added
+to your YouTube history. Open **Settings** (the gear, top right) and follow the steps: you export your YouTube
+cookies from a private browser window with the *Get cookies.txt LOCALLY* extension and upload the file.
+
+- Only these two actions use the cookies. Streaming, resolving and downloads always stay logged out.
+- The file is stored in your library folder as `.localtube/cookies.txt`, which is never served over HTTP.
+- Anyone who can open your LocalTube can like videos with your account, so keep it on a network you trust.
+- Google occasionally flags accounts used by tools like this; a second account keeps your main one out of it.
+- If YouTube stops accepting the cookies, Settings says so; export a fresh copy the same way.
+- Google's official API (OAuth) can't add videos to your watch history, which is why this uses cookies.
+
 ## Development
 
 Requirements: Node 24 (see `.nvmrc`), pnpm, [uv](https://docs.astral.sh/uv/) and ffmpeg. Run two terminals:
@@ -124,7 +140,9 @@ backend/                  FastAPI + yt-dlp (Python 3.14, uv)
     app.py                routes and app lifespan
     extractor.py          yt-dlp wrapper: metadata, format choice, stream URL cache
     proxy.py              range-aware relay of YouTube's video/audio streams
-    downloads.py          background downloads and the library listing
+    downloads.py          download tasks (Huey) and the library listing
+    account.py            YouTube account actions with your cookies (like, mark watched)
+    config.py             library and app-state folders
 frontend/                 React 19 + TypeScript + Vite
   src/
     routes/               TanStack Router pages: / (library) and /watch?url=…
@@ -152,7 +170,11 @@ browser ──► nginx :8080 ─┬─► /            React build (static)
   with HTTP Range support, in 10 MiB pieces like yt-dlp does. The frontend's `Player` plays a `<video>` and a
   hidden `<audio>` and keeps them in lockstep: either side buffering holds the other, and drift is corrected.
   You get full quality and instant seeking with no transcoding.
-- **Downloading:** yt-dlp runs in the background (two downloads at a time) and ffmpeg merges the result into an mp4.
+- **Downloading:** each download is a [Huey](https://github.com/coleifer/huey) task. Two run at a time, inside
+  the API process, with the queue in SQLite (`.localtube/tasks.db` in the library folder). A failed download is
+  retried once after 5 s. yt-dlp fetches in 10 MiB pieces straight into a `.part` file, so memory doesn't grow
+  with the video size. A download that was running when the server stopped resumes on the next start, and
+  ffmpeg merges the result into an mp4.
 - **Production setup:**
   - uvicorn runs with exactly one worker, on purpose: the stream cache and download jobs live in memory.
   - It listens only inside the container, behind nginx, and shuts down within 5 s even with open streams.

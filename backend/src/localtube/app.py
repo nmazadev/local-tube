@@ -1,12 +1,15 @@
 import os
+import re
 from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
-from . import downloads, extractor, proxy
+from . import account, downloads, extractor, proxy
+from .config import LIBRARY
 
 PRODUCTION = os.environ.get("LOCALTUBE_ENV") == "production"
 
@@ -14,6 +17,7 @@ PRODUCTION = os.environ.get("LOCALTUBE_ENV") == "production"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     proxy.open_client()
+    downloads.startup()
     yield
     downloads.shutdown()
     await proxy.close_client()
@@ -36,6 +40,14 @@ class ResolveRequest(BaseModel):
 class DownloadRequest(BaseModel):
     url: str
     q: int = 1080
+
+
+class AccountSettings(BaseModel):
+    mark_watched: bool
+
+
+class LikeRequest(BaseModel):
+    liked: bool
 
 
 @app.get("/api/health")
@@ -75,6 +87,20 @@ def clear_downloads() -> None:
     downloads.clear_finished()
 
 
+@app.delete("/api/downloads/{job_id}")
+def cancel_download(job_id: str) -> dict:
+    if (job := downloads.cancel(job_id)) is None:
+        raise HTTPException(409, "This download can't be cancelled")
+    return job
+
+
+@app.post("/api/downloads/{job_id}/retry")
+def retry_download(job_id: str) -> dict:
+    if (job := downloads.retry(job_id)) is None:
+        raise HTTPException(409, "Only failed or cancelled downloads can be retried")
+    return job
+
+
 @app.get("/api/library")
 def library() -> list[dict]:
     return downloads.library()
@@ -86,6 +112,59 @@ def delete_video(video_id: str) -> None:
         raise HTTPException(404, "Not in library")
 
 
-# In Docker nginx serves /media straight from disk; this mount is for local development.
-downloads.LIBRARY.mkdir(parents=True, exist_ok=True)
-app.mount("/media", StaticFiles(directory=downloads.LIBRARY), name="media")
+def _account(fn, *args):
+    try:
+        return fn(*args)
+    except account.AccountError as e:
+        raise HTTPException(e.status, str(e)) from None
+
+
+@app.get("/api/account")
+def get_account() -> dict:
+    return account.status()
+
+
+@app.patch("/api/account")
+def update_account(req: AccountSettings) -> dict:
+    return account.update_settings(req.mark_watched)
+
+
+@app.put("/api/account/cookies")
+async def upload_cookies(request: Request) -> dict:
+    body = await request.body()
+    if len(body) > account.MAX_COOKIES_SIZE:
+        raise HTTPException(413, "That file is too big to be a cookies.txt.")
+    return await run_in_threadpool(_account, account.save_cookies, body.decode("utf-8", "replace"))
+
+
+@app.delete("/api/account/cookies")
+def remove_cookies() -> dict:
+    return account.remove_cookies()
+
+
+@app.get("/api/account/like/{video_id}")
+def get_like(video_id: str) -> dict:
+    return {"liked": _account(account.like_status, video_id)}
+
+
+@app.put("/api/account/like/{video_id}")
+def set_like(video_id: str, req: LikeRequest) -> dict:
+    return {"liked": _account(account.set_like, video_id, req.liked)}
+
+
+@app.post("/api/account/watched/{video_id}", status_code=202)
+def mark_watched(video_id: str) -> None:
+    _account(account.mark_watched, video_id)
+
+
+# In Docker nginx serves /media straight from disk; this route is for local development.
+# Only `<id>.<ext>` files: never the .localtube folder, which holds the account cookies.
+MEDIA_NAME_RE = re.compile(r"^[\w-]+\.(mp4|webm|mkv|m4a|webp|jpg|jpeg|png)$")
+
+
+@app.get("/media/{name}", include_in_schema=False)
+def media(name: str) -> FileResponse:
+    path = LIBRARY / name
+    if not MEDIA_NAME_RE.match(name) or not path.is_file():
+        raise HTTPException(404)
+    return FileResponse(path)
