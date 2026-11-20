@@ -2,7 +2,9 @@
 **/.venv
 **/__pycache__
 frontend/dist
-library
+# Downloaded videos and app state (download queue, YouTube cookies) never go into the build.
+**/library
+**/.localtube
 .git
-.env
+**/.env
 *.md
