@@ -2,14 +2,22 @@
  * A <video> plus, for YouTube's separate streams, an <audio> kept in lockstep.
  *
  * Above 360p YouTube serves picture and sound as separate files, so we play two media
- * elements and `reconcile()` keeps them together: whenever one is buffering or seeking
- * the other is held, and drift over MAX_DRIFT is corrected. React subscribes through
- * `subscribe`/`getState` (useSyncExternalStore).
+ * elements and `reconcile()` keeps them together:
+ * - When either one runs out of data or seeks, both are held. They resume only once both
+ *   have RESUME_AHEAD seconds buffered, so a thin buffer doesn't flap between play and pause.
+ * - Small drift is closed by playing the audio slightly faster or slower (pitch is
+ *   preserved); only drift over MAX_DRIFT makes the audio jump.
+ * React subscribes through `subscribe`/`getState` (useSyncExternalStore).
  */
 
 const HAVE_FUTURE_DATA = 3
-const MAX_DRIFT = 0.2
-const SYNC_EVENTS = ['waiting', 'canplay', 'canplaythrough', 'playing', 'seeked', 'stalled'] as const
+const RESUME_AHEAD = 2
+/** Drift (s) at which the audio rate is nudged by NUDGE, and where the nudge stops. */
+const NUDGE_FROM = 0.05
+const NUDGE_UNTIL = 0.02
+const NUDGE = 0.05
+const MAX_DRIFT = 1
+const SYNC_EVENTS = ['waiting', 'canplay', 'canplaythrough', 'playing', 'seeked', 'progress'] as const
 const UI_EVENTS = [
   'timeupdate', 'progress', 'durationchange', 'loadedmetadata', 'volumechange',
   'waiting', 'playing', 'canplay', 'seeking', 'seeked', 'ratechange',
@@ -36,7 +44,7 @@ export interface LoadOptions {
   autoplay?: boolean
 }
 
-const ready = (m: HTMLMediaElement) => m.readyState >= HAVE_FUTURE_DATA && !m.seeking
+const starved = (m: HTMLMediaElement) => m.seeking || m.readyState < HAVE_FUTURE_DATA
 
 function bufferedEndOf(m: HTMLMediaElement) {
   for (let i = 0; i < m.buffered.length; i++) {
@@ -45,11 +53,20 @@ function bufferedEndOf(m: HTMLMediaElement) {
   return m.currentTime
 }
 
+/** Enough buffered to resume: RESUME_AHEAD seconds, or everything up to the end. */
+function comfortable(m: HTMLMediaElement) {
+  if (starved(m)) return false
+  const end = bufferedEndOf(m)
+  return end - m.currentTime >= RESUME_AHEAD || (Number.isFinite(m.duration) && end >= m.duration - 0.25)
+}
+
 export class Player {
   private v: HTMLVideoElement | null = null
   private a: HTMLAudioElement | null = null
   private split = false
   private want = false
+  /** Split mode: both elements paused until each has enough buffered. */
+  private holding = false
   private volume = 1
   private muted = false
   private rate = 1
@@ -113,10 +130,9 @@ export class Player {
 
   private read(): PlayerState {
     const v = this.v
-    const notReady = (m: HTMLMediaElement) => m.readyState < HAVE_FUTURE_DATA || m.seeking
     return {
       playing: this.want,
-      buffering: !!v && this.want && !this.error && (notReady(v) || (this.split && !!this.a && notReady(this.a))),
+      buffering: !!v && this.want && !this.error && (this.split ? this.holding : starved(v)),
       currentTime: v?.currentTime ?? 0,
       duration: v && Number.isFinite(v.duration) ? v.duration : 0,
       bufferedEnd: v ? (this.split && this.a ? Math.min(bufferedEndOf(v), bufferedEndOf(this.a)) : bufferedEndOf(v)) : 0,
@@ -134,6 +150,7 @@ export class Player {
     if (!v || !a) return
     this.split = !!audio
     this.want = false
+    this.holding = this.split
     this.error = null
     v.src = video
     if (audio) a.src = audio
@@ -169,7 +186,11 @@ export class Player {
     const max = Number.isFinite(v.duration) ? v.duration : t
     t = Math.max(0, Math.min(t, max))
     v.currentTime = t
-    if (this.split && a) a.currentTime = t
+    if (this.split && a) {
+      a.currentTime = t
+      this.holding = true
+      this.reconcile()
+    }
     this.emit()
   }
 
@@ -240,17 +261,42 @@ export class Player {
       if (!a.paused) a.pause()
       return
     }
-    if (ready(v) && ready(a)) {
-      if (Math.abs(a.currentTime - v.currentTime) > MAX_DRIFT) {
-        a.currentTime = v.currentTime // resumes on "seeked"
-        return
-      }
-      if (v.paused) v.play().catch(this.blocked)
-      if (a.paused) a.play().catch(this.blocked)
-    } else {
-      // One side is buffering: hold the other until both can play.
-      if (ready(v) && !v.paused) v.pause()
-      if (ready(a) && !a.paused) a.pause()
+    // The audio can end a moment before the video; it then stays out of the decisions.
+    const audioLive = !a.ended
+    if (this.holding) {
+      if (!comfortable(v) || (audioLive && !comfortable(a))) return this.hold()
+      this.holding = false
+      this.emit()
+    } else if (starved(v) || (audioLive && starved(a))) {
+      return this.hold()
     }
+    const drift = a.currentTime - v.currentTime
+    if (audioLive && Math.abs(drift) > MAX_DRIFT) {
+      a.currentTime = v.currentTime
+      return this.hold()
+    }
+    if (audioLive) this.nudge(drift)
+    if (v.paused) v.play().catch(this.blocked)
+    if (audioLive && a.paused) a.play().catch(this.blocked)
+  }
+
+  private hold() {
+    if (!this.holding) {
+      this.holding = true
+      this.emit()
+    }
+    if (!this.v?.paused) this.v?.pause()
+    if (!this.a?.paused) this.a?.pause()
+  }
+
+  /** Closes small drift by playing the audio slightly slower (ahead) or faster (behind). */
+  private nudge(drift: number) {
+    const a = this.a
+    if (!a) return
+    const off = Math.abs(drift)
+    let rate = a.playbackRate
+    if (off > NUDGE_FROM) rate = this.rate * (1 - Math.sign(drift) * NUDGE)
+    else if (off < NUDGE_UNTIL) rate = this.rate
+    if (a.playbackRate !== rate) a.playbackRate = rate
   }
 }
