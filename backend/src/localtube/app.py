@@ -50,6 +50,10 @@ class LikeRequest(BaseModel):
     liked: bool
 
 
+class PasswordRequest(BaseModel):
+    password: str
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"ok": True}
@@ -140,6 +144,21 @@ async def upload_cookies(request: Request) -> dict:
 @app.delete("/api/account/cookies")
 def remove_cookies() -> dict:
     return account.remove_cookies()
+
+
+@app.post("/api/account/password")
+def set_password(req: PasswordRequest) -> dict:
+    return _account(account.set_password, req.password)
+
+
+@app.delete("/api/account/password")
+def remove_password(req: PasswordRequest) -> dict:
+    return _account(account.remove_password, req.password)
+
+
+@app.post("/api/account/unlock")
+def unlock_account(req: PasswordRequest) -> dict:
+    return _account(account.unlock, req.password)
 
 
 @app.get("/api/account/like/{video_id}")

@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { CookieGuide } from '@/components/account/cookie-guide'
+import { PasswordSection, UnlockForm } from '@/components/account/password'
 import { PixelIcon } from '@/components/pixel-icon'
 import {
   AlertDialog,
@@ -33,6 +34,8 @@ function SettingsPage() {
       </header>
       {account.isPending ? (
         <Skeleton className="h-40 w-full" />
+      ) : account.data?.locked ? (
+        <Locked />
       ) : account.data?.connected ? (
         <Connected account={account.data} />
       ) : (
@@ -51,8 +54,8 @@ function SettingsPage() {
       )}
       <aside className="space-y-2 border-t-3 border-dashed border-muted-foreground/40 pt-6 text-muted-foreground">
         <p>
-          The file is kept in your library folder, in <span className="font-mono text-lg">.localtube/cookies.txt</span>, and is only used to like
-          videos and mark them watched.
+          The file is kept in your library folder, in <span className="font-mono text-lg">.localtube</span> (encrypted if you set a password), and
+          is only used to like videos and mark them watched.
         </p>
         <p>Anyone who can open this LocalTube can like videos as you, so keep it on a network you trust.</p>
         <p>Google occasionally flags accounts used by tools like this. A second account keeps your main one out of it.</p>
@@ -61,9 +64,29 @@ function SettingsPage() {
   )
 }
 
+function Locked() {
+  return (
+    <section className="space-y-6 bg-card px-6 py-5 pixel-lift">
+      <div className="flex items-center gap-4">
+        <span className="grid size-11 place-items-center bg-accent text-accent-foreground pixel-box">
+          <PixelIcon name="lock" className="size-5" />
+        </span>
+        <div>
+          <p className="text-lg font-bold">Your account is locked</p>
+          <p className="text-muted-foreground">Type its password to use likes and watched marks again.</p>
+        </div>
+      </div>
+      <UnlockForm />
+      <div className="space-y-3 border-t-3 border-dashed border-muted-foreground/40 pt-5">
+        <p className="text-muted-foreground">Forgot the password? Disconnect, then connect again with a new cookies file.</p>
+        <DisconnectButton />
+      </div>
+    </section>
+  )
+}
+
 function Connected({ account }: { account: Account }) {
   const update = useUpdateAccount()
-  const remove = useRemoveCookies()
   return (
     <section className="space-y-6 bg-card px-6 py-5 pixel-lift">
       <div className="flex items-center gap-4">
@@ -87,25 +110,37 @@ function Connected({ account }: { account: Account }) {
           <span className="block text-muted-foreground">When you reach 90% of a video, it’s added to your YouTube history.</span>
         </span>
       </label>
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button variant="outline">Disconnect</Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="font-heading text-xs leading-relaxed">DISCONNECT YOUTUBE?</AlertDialogTitle>
-            <AlertDialogDescription>
-              LocalTube deletes its saved cookies. To connect again you’ll need to export a new file.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => remove.mutate()}>
-              Disconnect
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <div className="border-t-3 border-dashed border-muted-foreground/40 pt-5">
+        <PasswordSection account={account} />
+      </div>
+      <div className="border-t-3 border-dashed border-muted-foreground/40 pt-5">
+        <DisconnectButton />
+      </div>
     </section>
+  )
+}
+
+function DisconnectButton() {
+  const remove = useRemoveCookies()
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="outline">Disconnect</Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="font-heading text-xs leading-relaxed">DISCONNECT YOUTUBE?</AlertDialogTitle>
+          <AlertDialogDescription>
+            LocalTube deletes its saved cookies. To connect again you’ll need to export a new file.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={() => remove.mutate()}>
+            Disconnect
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

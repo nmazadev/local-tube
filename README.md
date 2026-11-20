@@ -104,7 +104,11 @@ to your YouTube history. Open **Settings** (the gear, top right) and follow the 
 cookies from a private browser window with the *Get cookies.txt LOCALLY* extension and upload the file.
 
 - Only these two actions use the cookies. Streaming, resolving and downloads always stay logged out.
-- The file is stored in your library folder as `.localtube/cookies.txt`, which is never served over HTTP.
+- The file is stored in your library folder under `.localtube/`, which is never served over HTTP.
+- **Optional password:** in Settings you can encrypt the cookies (scrypt + AES-256-GCM). After each restart of
+  LocalTube you type the password once in Settings; until then likes and watched marks are paused. The decrypted
+  cookies only exist in memory while an action runs. There's no recovery: if you forget it, disconnect and
+  connect again with a new cookies file.
 - Anyone who can open your LocalTube can like videos with your account, so keep it on a network you trust.
 - Google occasionally flags accounts used by tools like this; a second account keeps your main one out of it.
 - If YouTube stops accepting the cookies, Settings says so; export a fresh copy the same way.

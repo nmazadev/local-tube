@@ -87,6 +87,9 @@ function useAccountAction<T>(fn: (arg: T) => Promise<Account>) {
 export const useUploadCookies = () => useAccountAction(api.uploadCookies)
 export const useRemoveCookies = () => useAccountAction(api.removeCookies)
 export const useUpdateAccount = () => useAccountAction(api.updateAccount)
+export const useSetPassword = () => useAccountAction(api.setPassword)
+export const useRemovePassword = () => useAccountAction(api.removePassword)
+export const useUnlockAccount = () => useAccountAction(api.unlock)
 
 export function useSetLiked(id: string) {
   const qc = useQueryClient()

@@ -59,6 +59,10 @@ export interface Account {
   connected: boolean
   /** Cookies are saved but YouTube no longer accepts them. */
   expired: boolean
+  /** The cookies are stored encrypted with a password. */
+  protected: boolean
+  /** Protected and not unlocked since LocalTube started. */
+  locked: boolean
   name: string | null
   mark_watched: boolean
 }
@@ -97,6 +101,9 @@ export const api = {
   uploadCookies: (text: string) =>
     request<Account>('/api/account/cookies', { method: 'PUT', body: text, headers: { 'content-type': 'text/plain' } }),
   removeCookies: () => request<Account>('/api/account/cookies', { method: 'DELETE' }),
+  setPassword: (password: string) => request<Account>('/api/account/password', { method: 'POST', json: { password } }),
+  removePassword: (password: string) => request<Account>('/api/account/password', { method: 'DELETE', json: { password } }),
+  unlock: (password: string) => request<Account>('/api/account/unlock', { method: 'POST', json: { password } }),
   liked: (id: string) => request<{ liked: boolean }>(`/api/account/like/${encodeURIComponent(id)}`),
   setLiked: (id: string, liked: boolean) =>
     request<{ liked: boolean }>(`/api/account/like/${encodeURIComponent(id)}`, { method: 'PUT', json: { liked } }),
