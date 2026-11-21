@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api, isActiveJob, type Account, type Playable, type TvCommand } from './api'
-import { startOf, videoIdOf, withoutStart } from './youtube'
+import { startOf, videoIdOf, withoutStart, withoutTracking } from './youtube'
 
 export const libraryQuery = queryOptions({
   queryKey: ['library'],
@@ -25,6 +25,11 @@ export const resolveQuery = (url: string) =>
     retry: false,
   })
 
+export const historyQuery = queryOptions({
+  queryKey: ['history'],
+  queryFn: api.history,
+})
+
 /**
  * What to play for a link: the downloaded copy when it's in the library (no YouTube request
  * at all), otherwise the resolved stream. A link's start time (`&t=1m30s`) only picks where
@@ -32,12 +37,14 @@ export const resolveQuery = (url: string) =>
  */
 export function usePlayable(url: string) {
   const start = startOf(url)
-  const cleanUrl = withoutStart(url)
+  const cleanUrl = withoutTracking(withoutStart(url))
   const id = videoIdOf(url)
   const library = useQuery(libraryQuery)
   const local = library.data?.find((i) => (id ? i.id === id : i.url === cleanUrl))
   const resolved = useQuery({ ...resolveQuery(cleanUrl), enabled: library.isFetched && !local })
-  const video: Playable | undefined = local ?? resolved.data
+  // The player reads where any device left off from the history when it mounts.
+  const history = useQuery(historyQuery)
+  const video: Playable | undefined = history.isFetchedAfterMount ? (local ?? resolved.data) : undefined
   return { video, error: resolved.isError ? resolved.error : null, start, cleanUrl }
 }
 
@@ -161,6 +168,15 @@ export function useTvCommand() {
     mutationFn: (command: TvCommand) => api.tvCommand(command),
     // The TV reports its new state right away; fetch it a moment later.
     onSettled: () => setTimeout(() => void qc.invalidateQueries({ queryKey: tvQuery.queryKey }), 800),
+    onError: (e) => toast.error(e.message),
+  })
+}
+
+export function useRemoveHistory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: api.removeHistory,
+    onSuccess: () => qc.invalidateQueries({ queryKey: historyQuery.queryKey }),
     onError: (e) => toast.error(e.message),
   })
 }

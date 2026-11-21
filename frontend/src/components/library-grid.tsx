@@ -33,13 +33,13 @@ export function LibraryGrid({ excludeId }: { excludeId?: string }) {
         )}
       </div>
       {isPending ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-x-7 gap-y-8">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(230px,1fr))] sm:gap-x-7 sm:gap-y-8">
           {Array.from({ length: 4 }, (_, i) => (
             <Skeleton key={i} className="aspect-video pixel-box" />
           ))}
         </div>
       ) : items.length ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-x-7 gap-y-8">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(230px,1fr))] sm:gap-x-7 sm:gap-y-8">
           {items.map((item) => (
             <LibraryCard key={item.id} item={item} />
           ))}
@@ -67,18 +67,18 @@ function LibraryCard({ item }: { item: LibraryItem }) {
         <div className="relative aspect-video overflow-hidden bg-muted pixel-box">
           {item.thumbnail && <img src={item.thumbnail} alt="" loading="lazy" className="size-full object-cover" />}
           {item.duration != null && (
-            <span className="absolute right-1.5 bottom-1.5 bg-foreground px-1.5 font-mono text-lg leading-tight text-background">{formatTime(item.duration)}</span>
+            <span className="absolute right-1.5 bottom-1.5 bg-foreground px-1.5 font-mono text-base leading-tight text-background sm:text-lg">{formatTime(item.duration)}</span>
           )}
           {watched > 0 && <div className="absolute bottom-0 left-0 h-1.5 bg-secondary" style={{ width: `${watched * 100}%` }} />}
         </div>
-        <h3 className="mt-3 line-clamp-2 leading-snug font-semibold">{item.title || item.id}</h3>
-        <p className="text-[15px] text-muted-foreground">{item.channel}</p>
+        <h3 className="mt-2 line-clamp-2 text-[15px] leading-snug font-semibold sm:mt-3 sm:text-base">{item.title || item.id}</h3>
+        <p className="truncate text-sm text-muted-foreground sm:text-[15px]">{item.channel}</p>
       </Link>
 
       <AlertDialog>
         <AlertDialogTrigger
           aria-label="Delete from library"
-          className="absolute top-2 right-2 grid size-8 place-items-center bg-card text-foreground opacity-0 pixel-box transition-opacity group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground focus-visible:opacity-100 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-ring"
+          className="absolute top-2 right-2 grid size-8 place-items-center bg-card text-foreground pixel-box transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground focus-visible:opacity-100 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-ring"
         >
           <PixelIcon name="close" className="size-3.5" />
         </AlertDialogTrigger>

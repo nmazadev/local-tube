@@ -38,15 +38,25 @@ function read(): ThemeState {
 
 let state = read()
 
+/** The phone's status bar (and an installed app's title bar) takes the header's colour. */
+function syncThemeColor() {
+  const color = getComputedStyle(document.documentElement).getPropertyValue('--p-card').trim()
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+  if (color && meta) meta.content = color
+}
+
 function apply() {
   state = read()
   const root = document.documentElement
   root.dataset.theme = state.theme
   root.classList.toggle('dark', state.resolved === 'dark')
+  syncThemeColor()
   for (const fn of listeners) fn()
 }
 
 darkQuery.addEventListener('change', apply)
+// After the stylesheet is in (in development it's injected by a later import).
+requestAnimationFrame(syncThemeColor)
 
 export function setTheme(theme: ThemeId) {
   storage.set(THEME_KEY, theme)

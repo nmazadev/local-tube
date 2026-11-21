@@ -29,9 +29,12 @@ export const storage = {
 /** Saved playback position (seconds) per video. */
 export const positions = {
   get: (id: string) => storage.get<number>(`pos:${id}`, 0),
-  /** Where to start: the saved position unless it's at the very start or end. */
-  resumeAt(id: string, duration: number | null) {
-    const t = positions.get(id)
+  /**
+   * Where to start: the saved position unless it's at the very start or end. `synced` is
+   * the position from the shared history (any device), which wins when there is one.
+   */
+  resumeAt(id: string, duration: number | null, synced?: number) {
+    const t = synced ?? positions.get(id)
     return t > 10 && (!duration || t < duration - 30) ? t : 0
   },
   save(id: string, t: number, duration: number) {

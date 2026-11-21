@@ -4,21 +4,23 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { useStartDownload } from '@/lib/queries'
+import { PixelIcon } from '@/components/pixel-icon'
 import { storage } from '@/lib/storage'
+import { withoutTracking } from '@/lib/youtube'
 
 export function UrlForm({ initialUrl }: { initialUrl: string }) {
   const navigate = useNavigate()
-  const [url, setUrl] = useState(initialUrl)
+  const [url, setUrl] = useState(() => withoutTracking(initialUrl))
   // Off by default on every visit; streaming is the normal mode.
   const [alsoDownload, setAlsoDownload] = useState(false)
   const download = useStartDownload()
 
   return (
     <form
-      className="flex flex-1 flex-wrap items-center gap-x-5 gap-y-3 max-sm:order-2 max-sm:basis-full sm:flex-nowrap"
+      className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-5"
       onSubmit={(e) => {
         e.preventDefault()
-        const value = url.trim()
+        const value = withoutTracking(url.trim())
         if (!value) return
         if (alsoDownload) download.mutate({ url: value, q: storage.get('quality', 1080) })
         void navigate({ to: '/watch', search: { url: value } })
@@ -32,14 +34,16 @@ export function UrlForm({ initialUrl }: { initialUrl: string }) {
         placeholder="Paste a YouTube link…"
         autoComplete="off"
         spellCheck={false}
-        className="min-w-0 flex-1 basis-full sm:basis-auto"
+        className="min-w-0 flex-1 max-sm:h-9 max-sm:px-2.5 max-sm:text-[15px]"
       />
-      <label className="flex items-center gap-2 text-sm whitespace-nowrap text-muted-foreground has-data-[state=checked]:text-foreground">
+      {/* Phones use the Download button under the video instead. */}
+      <label className="flex items-center gap-2 text-sm whitespace-nowrap max-sm:hidden text-muted-foreground has-data-[state=checked]:text-foreground">
         <Switch checked={alsoDownload} onCheckedChange={setAlsoDownload} />
         Also download
       </label>
-      <Button type="submit" className="ml-auto px-5 font-heading text-xs">
-        PLAY
+      <Button type="submit" aria-label="Play this link" className="shrink-0 font-heading text-xs max-sm:size-9 max-sm:p-0 sm:px-5">
+        <PixelIcon name="arrowRight" className="size-5 sm:hidden" />
+        <span className="max-sm:hidden">PLAY</span>
       </Button>
     </form>
   )

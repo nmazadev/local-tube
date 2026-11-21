@@ -8,6 +8,7 @@ import { VideoPlayer } from '@/components/player/video-player'
 import { Skeleton } from '@/components/ui/skeleton'
 import { VideoInfo } from '@/components/video-info'
 import { usePlayable } from '@/lib/queries'
+import { withoutTracking } from '@/lib/youtube'
 
 export const Route = createFileRoute('/watch')({
   validateSearch: (search: Record<string, unknown>): { url: string } => ({
@@ -26,10 +27,12 @@ function WatchPage() {
 
   // Once the player has taken the start time, drop it from the address so a reload
   // resumes from the saved position instead of jumping back.
+  // Shared links carry YouTube's tracking (`si=`); keep the address clean.
   const ready = !!video
   useEffect(() => {
-    if (ready && start != null) void navigate({ search: { url: cleanUrl }, replace: true })
-  }, [ready, start, cleanUrl, navigate])
+    const clean = withoutTracking(ready ? cleanUrl : url)
+    if (clean !== url) void navigate({ search: { url: clean }, replace: true })
+  }, [ready, url, cleanUrl, navigate])
 
   useEffect(() => {
     document.title = video?.title ? `${video.title} · LocalTube` : 'LocalTube'
@@ -39,7 +42,7 @@ function WatchPage() {
   }, [video?.title])
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8 sm:gap-10">
       {error ? (
         <div className="mx-4 flex items-start gap-4 bg-destructive px-5 py-4 text-destructive-foreground pixel-lift sm:mx-0">
           <PixelIcon name="alert" className="mt-1 size-5" />
@@ -66,7 +69,7 @@ function WatchPage() {
           </div>
         </section>
       )}
-      <div className="flex flex-col gap-10 px-4 sm:px-0">
+      <div className="flex flex-col gap-8 px-4 sm:gap-10 sm:px-0">
         <DownloadsList />
         <LibraryGrid excludeId={video?.id} />
       </div>

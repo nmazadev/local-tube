@@ -3,7 +3,31 @@ import { PixelIcon } from '@/components/pixel-icon'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 
+const touch = () => window.matchMedia('(pointer: coarse)').matches
+/** Installed from Chrome's menu, LocalTube opens as an app and is in the Share menu. */
+const installed = () => window.matchMedia('(display-mode: standalone)').matches
+
+/** How to get videos here with one tap: the bookmarklet on computers, Share on phones. */
 export function BookmarkletTip() {
+  return touch() ? <ShareTip /> : <Bookmarklet />
+}
+
+function ShareTip() {
+  return (
+    <section className="px-5 py-4 outline-3 -outline-offset-3 outline-muted-foreground outline-dashed">
+      <h2 className="font-heading text-xs leading-relaxed">TIP: SHARE FROM YOUTUBE</h2>
+      <p className="mt-2 text-muted-foreground">
+        {installed() ? (
+          <>In the YouTube app, tap <b className="text-foreground">Share</b> under a video and pick <b className="text-foreground">LocalTube</b>. With your TV open, it plays there.</>
+        ) : (
+          <>Install LocalTube from Chrome’s menu (<b className="text-foreground">Install app</b>). It then shows up when you tap <b className="text-foreground">Share</b> in the YouTube app.</>
+        )}
+      </p>
+    </section>
+  )
+}
+
+function Bookmarklet() {
   const ref = useRef<HTMLAnchorElement>(null)
   useEffect(() => {
     // React refuses `javascript:` hrefs in JSX, so set it directly.

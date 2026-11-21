@@ -22,7 +22,7 @@ export function ThemeMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" aria-label="Theme">
+        <Button variant="outline" size="icon" aria-label="Theme" className="max-sm:size-9">
           <PixelIcon name="palette" className="size-5" />
         </Button>
       </DropdownMenuTrigger>

@@ -16,6 +16,7 @@ export function LikeButton({ videoId }: { videoId: string }) {
   return (
     <Button
       variant="outline"
+      size="sm"
       aria-pressed={isLiked}
       disabled={liked.isPending || liked.isError}
       title={liked.isError ? liked.error.message : undefined}

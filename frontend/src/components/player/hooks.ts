@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { api, type Playable } from '@/lib/api'
+import { api, type Device, type Playable } from '@/lib/api'
 import type { Player } from '@/lib/player'
-import { accountQuery } from '@/lib/queries'
+import { usePlayer } from './player-context'
+import { accountQuery, tvQuery } from '@/lib/queries'
 import { positions, storage } from '@/lib/storage'
 
 /** True after the mouse has been still over `ref`, and no key pressed, for a while (only while `active`). */
@@ -86,14 +87,39 @@ export function useKeyboardShortcuts(player: Player, toggleFullscreen: () => voi
   }, [player, toggleFullscreen, enabled])
 }
 
-/** Persist volume/mute, and the playback position per video. */
-export function usePersistence(player: Player, videoId: string) {
+/** This browser as the shared history names it. */
+export const thisDevice = (tv: boolean): Device =>
+  tv ? 'tv' : window.matchMedia('(pointer: coarse)').matches ? 'phone' : 'computer'
+
+/**
+ * Persist volume/mute, and the playback position per video: in this browser, and in the
+ * shared history (every 10 s while playing, and on pause or leaving) so other devices can
+ * continue from there.
+ */
+export function usePersistence(player: Player, video: Playable, device: Device) {
   useEffect(() => {
     let { volume, muted, playing } = player.getState()
     let lastSaved = 0
-    const save = () => {
+    let lastSynced = 0
+    const save = (stopped = false) => {
       const s = player.getState()
-      if (s.duration) positions.save(videoId, s.currentTime, s.duration)
+      if (!s.duration) return
+      positions.save(video.id, s.currentTime, s.duration)
+      lastSynced = s.currentTime
+      // Near the end counts as finished: it leaves "Continue watching".
+      const position = s.currentTime > s.duration - 30 ? 0 : Math.floor(s.currentTime)
+      api
+        .saveHistory(video.id, {
+          url: video.url,
+          title: video.title,
+          thumbnail: video.thumbnail,
+          channel: video.channel,
+          duration: s.duration,
+          position,
+          playing: s.playing && !stopped,
+          device,
+        })
+        .catch(() => {})
     }
     const unsubscribe = player.subscribe(() => {
       const s = player.getState()
@@ -102,19 +128,21 @@ export function usePersistence(player: Player, videoId: string) {
         storage.set('volume', volume)
         storage.set('muted', muted)
       }
-      if ((playing && !s.playing) || Math.abs(s.currentTime - lastSaved) >= 5) {
+      if (s.playing !== playing || Math.abs(s.currentTime - lastSynced) >= 10) save()
+      else if (Math.abs(s.currentTime - lastSaved) >= 5) {
         lastSaved = s.currentTime
-        save()
+        if (s.duration) positions.save(video.id, s.currentTime, s.duration)
       }
       playing = s.playing
     })
-    window.addEventListener('pagehide', save)
+    const leave = () => save(true)
+    window.addEventListener('pagehide', leave)
     return () => {
-      save()
+      leave()
       unsubscribe()
-      window.removeEventListener('pagehide', save)
+      window.removeEventListener('pagehide', leave)
     }
-  }, [player, videoId])
+  }, [player, video, device])
 }
 
 /** OS media keys / lock screen controls. */
@@ -162,4 +190,22 @@ export function useMarkWatched(player: Player, videoId: string) {
     })
     return unsubscribe
   }, [player, videoId, enabled])
+}
+
+/**
+ * When the TV starts playing this same video (picked up from its "On your phone" card),
+ * stop it here so it doesn't play in two places.
+ */
+export function usePauseWhenTvTakesOver(videoId: string) {
+  const player = usePlayer()
+  const { data } = useQuery(tvQuery)
+  const onTv = data?.state?.video_id === videoId && data.state.playing
+  const was = useRef(onTv)
+  useEffect(() => {
+    if (onTv && !was.current && player.getState().playing) {
+      player.pause()
+      toast('Continued on TV')
+    }
+    was.current = onTv
+  }, [onTv, player])
 }

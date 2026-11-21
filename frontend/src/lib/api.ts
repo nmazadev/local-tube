@@ -76,6 +76,14 @@ export interface TvState {
   current_time: number
   duration: number
   playing: boolean
+  /** Videos sent with "Play next on TV", in order. */
+  queue: QueuedVideo[]
+}
+
+export interface QueuedVideo {
+  url: string
+  title: string | null
+  thumbnail: string | null
 }
 
 export interface TvStatus {
@@ -86,10 +94,32 @@ export interface TvStatus {
 
 export type TvCommand =
   | { type: 'play'; url: string; t?: number }
+  | { type: 'queue'; url: string; title?: string | null; thumbnail?: string | null }
+  | { type: 'skip' }
   | { type: 'pause' }
   | { type: 'resume' }
   | { type: 'stop' }
   | { type: 'seek'; t: number }
+
+export type Device = 'phone' | 'tv' | 'computer'
+
+/** Where a video was left off, on any device (backend `history.py`). */
+export interface HistoryEntry {
+  id: string
+  url: string | null
+  title: string | null
+  thumbnail: string | null
+  channel: string | null
+  duration: number | null
+  position: number
+  playing: boolean
+  device: Device
+  /** Unix time (s) of the last report. */
+  updated: number
+}
+
+/** Started but not finished, on any device. */
+export const unfinished = (entries: HistoryEntry[] | undefined) => (entries ?? []).filter((e) => e.url && e.position > 10)
 
 async function request<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, ...rest } = init
@@ -135,6 +165,10 @@ export const api = {
   tv: () => request<TvStatus>('/api/tv'),
   tvCommand: (command: TvCommand) => request<null>('/api/tv/command', { method: 'POST', json: command }),
   tvState: (state: TvState) => request<null>('/api/tv/state', { method: 'POST', json: state }),
+  history: () => request<HistoryEntry[]>('/api/history'),
+  saveHistory: (id: string, entry: Omit<HistoryEntry, 'id' | 'updated'>) =>
+    request<HistoryEntry>(`/api/history/${encodeURIComponent(id)}`, { method: 'PUT', json: entry, keepalive: true }),
+  removeHistory: (id: string) => request<null>(`/api/history/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 }
 
 /** Media URLs for a video at a given max height. `compat` asks for H.264 + AAC (TVs). */

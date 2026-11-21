@@ -16,7 +16,8 @@ FastAPI backend and a React frontend. It runs as one small Docker container.
 - **Timestamped links**: `&t=1m30s`, `?t=90` and `#t=90` start playback at that point.
 - **Your YouTube account (optional)**: like videos and add them to your YouTube history as watched.
 - **Offline library** with thumbnails and watch progress. Links you've already downloaded play from disk.
-- **Resume where you left off**, per video. Volume, speed and quality are remembered too.
+- **Resume where you left off, on any device**: *Continue watching* on the phone, computer and TV shares one
+  history, so a video started on one continues on another. Volume, speed and quality are remembered too.
 - **Chapters and clickable timestamps** from the video description. YouTube links in descriptions open in LocalTube.
 - **6 pixel-pastel themes**, each with light and dark versions, or following your system.
 - **YouTube-style keyboard shortcuts** and OS media-key support.
@@ -130,14 +131,21 @@ LocalTube keeps running on your computer; your phone and TV open it over your ho
    - Open `chrome://flags/#unsafely-treat-insecure-origin-as-secure`, add `http://192.168.1.20:8080`, set it to
      *Enabled* and relaunch Chrome.
    - Open LocalTube again, then Chrome's menu → **Install app** (or *Add to home screen*).
-   - In the YouTube app, **Share → LocalTube** plays the video, keeping the shared time.
+   - In the YouTube app, **Share → LocalTube** plays the video, keeping the shared time. With the TV page open
+     it plays on the TV straight away; if the TV is already playing something, you choose *Play now on TV*,
+     *Play next on TV* or *Play here*.
 
    Without the flag, LocalTube still works in Chrome; it just can't be installed or shared to.
 3. **TV:** open `http://192.168.1.20:8080/tv` in the TV's web browser (on a Samsung TV, the **Internet** app)
-   and bookmark it. Press OK once so videos can start on their own.
-   - On your phone, **Play on TV** under any video sends it there from where you are. A remote bar then
-     appears at the bottom of LocalTube on the phone: pause, ±10 s, seek, **Stop**, and **Watch here** to
-     continue on the phone.
+   and bookmark it. Press OK once so videos can start on their own. The TV screen shows a QR code: scan it
+   with the phone's camera to open LocalTube there without typing the address.
+   - On your phone, **Play on TV** under any video sends it there from where you are (**Play next on TV**
+     queues it while the TV plays something else). A remote bar then appears at the bottom of LocalTube on the
+     phone: pause, ±10 s, seek, **Skip** to the next queued video, **Stop**, and **Watch here** to continue on
+     the phone.
+   - Or the other way round: while the phone plays a video, the TV screen shows *On your phone: …*. Press OK
+     on the TV remote and it continues there from the same moment; the phone pauses itself.
+   - *Continue watching* on the TV lists what you left halfway on any device.
    - With the TV's remote: arrows and OK pick from your library; while playing, OK pauses, ← / → skip 10 s and
      Back returns to the library.
    - TVs get H.264 + AAC streams, which every TV can decode, so the top quality is usually 1080p.
@@ -175,6 +183,7 @@ backend/                  FastAPI + yt-dlp (Python 3.14, uv)
     downloads.py          download tasks (Huey) and the library listing
     account.py            YouTube account actions with your cookies (like, mark watched)
     tv.py                 the phone → TV link (server-sent events)
+    history.py            shared watch history and positions (Continue watching)
     config.py             library and app-state folders
 frontend/                 React 19 + TypeScript + Vite
   src/

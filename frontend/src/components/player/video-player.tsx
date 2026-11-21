@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { PixelIcon } from '@/components/pixel-icon'
 import { Button } from '@/components/ui/button'
 import { sourcesFor, type Playable } from '@/lib/api'
+import { historyQuery } from '@/lib/queries'
 import { positions, storage } from '@/lib/storage'
 import { cn } from '@/lib/utils'
-import { useFullscreen, useIdle, useKeyboardShortcuts, useMarkWatched, useMediaSession, usePersistence } from './hooks'
+import { thisDevice, useFullscreen, useIdle, useKeyboardShortcuts, useMarkWatched, useMediaSession, usePersistence } from './hooks'
 import { usePlayer, usePlayerState } from './player-context'
 import { PlayerControls } from './player-controls'
 
@@ -32,7 +34,8 @@ export function VideoPlayer({ video, startAt = null, tv = false }: { video: Play
   const idle = useIdle(containerRef, playing && !menuOpen)
 
   useKeyboardShortcuts(player, toggleFullscreen, !tv)
-  usePersistence(player, video.id)
+  const [device] = useState(() => thisDevice(tv))
+  usePersistence(player, video, device)
   useMediaSession(player, video)
   useMarkWatched(player, video.id)
 
@@ -42,7 +45,12 @@ export function VideoPlayer({ video, startAt = null, tv = false }: { video: Play
   // (quality switch, or the download finishing) at the current time and play state.
   const { video: videoSrc, audio: audioSrc } = sourcesFor(video, quality ?? 1080, tv)
   const loaded = useRef(false)
-  const [resumeAt] = useState(() => startAt ?? positions.resumeAt(video.id, video.duration))
+  const queryClient = useQueryClient()
+  // The shared history (loaded before the player mounts) knows where any device left off.
+  const [resumeAt] = useState(() => {
+    const synced = queryClient.getQueryData(historyQuery.queryKey)?.find((e) => e.id === video.id)
+    return startAt ?? positions.resumeAt(video.id, video.duration, synced?.position)
+  })
   // Bumped by "Retry" to reload the same sources.
   const [attempt, setAttempt] = useState(0)
   // Declared before the load effect, so it only acts on later changes (the same video pasted
@@ -115,9 +123,9 @@ export function VideoPlayer({ video, startAt = null, tv = false }: { video: Play
             type="button"
             aria-label="Play"
             onClick={() => player.play()}
-            className="absolute inset-0 m-auto grid size-20 place-items-center bg-accent text-accent-foreground pixel-lift transition-transform duration-75 hover:-translate-x-px hover:-translate-y-px active:translate-x-0.5 active:translate-y-0.5"
+            className="absolute inset-0 m-auto grid size-14 place-items-center bg-accent sm:size-20 text-accent-foreground pixel-lift transition-transform duration-75 hover:-translate-x-px hover:-translate-y-px active:translate-x-0.5 active:translate-y-0.5"
           >
-            <PixelIcon name="play" className="size-10" />
+            <PixelIcon name="play" className="size-7 sm:size-10" />
           </button>
         )}
 

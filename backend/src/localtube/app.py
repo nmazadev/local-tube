@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from . import account, downloads, extractor, proxy, tv
+from . import account, downloads, extractor, history, proxy, tv
 from .config import LIBRARY
 
 PRODUCTION = os.environ.get("LOCALTUBE_ENV") == "production"
@@ -55,9 +55,18 @@ class PasswordRequest(BaseModel):
 
 
 class TvCommand(BaseModel):
-    type: Literal["play", "pause", "resume", "seek", "stop"]
+    type: Literal["play", "queue", "skip", "pause", "resume", "seek", "stop"]
     url: str | None = None
     t: float | None = None
+    # For "queue": shown in the remote's "Up next" before the TV resolves it.
+    title: str | None = None
+    thumbnail: str | None = None
+
+
+class QueuedVideo(BaseModel):
+    url: str
+    title: str | None = None
+    thumbnail: str | None = None
 
 
 class TvState(BaseModel):
@@ -69,6 +78,18 @@ class TvState(BaseModel):
     current_time: float = 0
     duration: float = 0
     playing: bool = False
+    queue: list[QueuedVideo] = []
+
+
+class HistoryEntry(BaseModel):
+    url: str | None = None
+    title: str | None = None
+    thumbnail: str | None = None
+    channel: str | None = None
+    duration: float | None = None
+    position: float = 0
+    playing: bool = False
+    device: Literal["phone", "tv", "computer"] = "computer"
 
 
 @app.get("/api/health")
@@ -205,7 +226,7 @@ def tv_events() -> StreamingResponse:
 
 @app.post("/api/tv/command", status_code=204)
 def tv_command(cmd: TvCommand) -> None:
-    if cmd.type == "play" and not cmd.url:
+    if cmd.type in ("play", "queue") and not cmd.url:
         raise HTTPException(422, "Nothing to play")
     if not tv.send(cmd.model_dump(exclude_none=True)):
         raise HTTPException(409, "No TV is open. Open LocalTube's /tv page on the TV first.")
@@ -214,6 +235,22 @@ def tv_command(cmd: TvCommand) -> None:
 @app.post("/api/tv/state", status_code=204)
 def tv_state(state: TvState) -> None:
     tv.report(state.model_dump())
+
+
+@app.get("/api/history")
+def get_history() -> list[dict]:
+    return history.entries()
+
+
+@app.put("/api/history/{video_id}")
+def update_history(video_id: str, entry: HistoryEntry) -> dict:
+    return history.update(video_id, entry.model_dump())
+
+
+@app.delete("/api/history/{video_id}", status_code=204)
+def remove_history(video_id: str) -> None:
+    if not history.remove(video_id):
+        raise HTTPException(404, "Not in history")
 
 
 # In Docker nginx serves /media straight from disk; this route is for local development.
