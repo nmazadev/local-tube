@@ -21,6 +21,8 @@ FastAPI backend and a React frontend. It runs as one small Docker container.
 - **6 pixel-pastel themes**, each with light and dark versions, or following your system.
 - **YouTube-style keyboard shortcuts** and OS media-key support.
 - **Bookmarklet**: one click on any YouTube page continues that video in LocalTube, from the same moment.
+- **Phone app**: install LocalTube on Android and share videos to it straight from the YouTube app.
+- **TV mode**: open `/tv` in your TV's browser, send videos from your phone and control them like a remote.
 
 ## Run the prebuilt image
 
@@ -70,11 +72,12 @@ Open **http://127.0.0.1:8080**.
 | `.env` variable | Default | Meaning |
 | --- | --- | --- |
 | `LIBRARY_DIR` | *(required)* | Host folder where downloaded videos are stored. |
-| `PORT` | `8080` | Host port for the web UI (bound to 127.0.0.1 only). |
+| `PORT` | `8080` | Host port for the web UI. |
+| `BIND` | `127.0.0.1` | Who can open it: `127.0.0.1` is only this machine, `0.0.0.0` your whole network (phone, TV). |
 | `UID` / `GID` | `1000` | User the container runs as, so downloads on the host belong to you (`id -u`, `id -g`). |
 
-To reach it from other devices on your network, change the port mapping in `compose.yaml` from
-`127.0.0.1:${PORT}:8080` to `${PORT}:8080`. There's no authentication, so only do this on a network you trust.
+To use it from your phone or TV, set `BIND=0.0.0.0` (see [Phone and TV](#phone-and-tv)). There's no
+authentication, so only do this on a network you trust.
 
 ## Using it
 
@@ -114,6 +117,31 @@ cookies from a private browser window with the *Get cookies.txt LOCALLY* extensi
 - If YouTube stops accepting the cookies, Settings says so; export a fresh copy the same way.
 - Google's official API (OAuth) can't add videos to your watch history, which is why this uses cookies.
 
+### Phone and TV
+
+LocalTube keeps running on your computer; your phone and TV open it over your home Wi-Fi.
+
+1. **Make it reachable:** with Compose, set `BIND=0.0.0.0` in `.env` and run `docker compose up -d`. With
+   `docker run`, use `-p 8080:8080` instead of `-p 127.0.0.1:8080:8080`. Docker Desktop already allows it.
+   Find the computer's address with `hostname -I` (Linux), `ipconfig` (Windows) or in your Wi-Fi settings
+   (macOS), for example `192.168.1.20`. A DHCP reservation in your router keeps it from changing.
+2. **Phone (Android):** open `http://192.168.1.20:8080` in Chrome. To install it as an app, which also adds
+   LocalTube to the **Share** menu, Chrome needs to treat that address as secure once:
+   - Open `chrome://flags/#unsafely-treat-insecure-origin-as-secure`, add `http://192.168.1.20:8080`, set it to
+     *Enabled* and relaunch Chrome.
+   - Open LocalTube again, then Chrome's menu → **Install app** (or *Add to home screen*).
+   - In the YouTube app, **Share → LocalTube** plays the video, keeping the shared time.
+
+   Without the flag, LocalTube still works in Chrome; it just can't be installed or shared to.
+3. **TV:** open `http://192.168.1.20:8080/tv` in the TV's web browser (on a Samsung TV, the **Internet** app)
+   and bookmark it. Press OK once so videos can start on their own.
+   - On your phone, **Play on TV** under any video sends it there from where you are. A remote bar then
+     appears at the bottom of LocalTube on the phone: pause, ±10 s, seek, **Stop**, and **Watch here** to
+     continue on the phone.
+   - With the TV's remote: arrows and OK pick from your library; while playing, OK pauses, ← / → skip 10 s and
+     Back returns to the library.
+   - TVs get H.264 + AAC streams, which every TV can decode, so the top quality is usually 1080p.
+
 ## Development
 
 Requirements: Node 24 (see `.nvmrc`), pnpm, [uv](https://docs.astral.sh/uv/) and ffmpeg. Run two terminals:
@@ -146,10 +174,11 @@ backend/                  FastAPI + yt-dlp (Python 3.14, uv)
     proxy.py              range-aware relay of YouTube's video/audio streams
     downloads.py          download tasks (Huey) and the library listing
     account.py            YouTube account actions with your cookies (like, mark watched)
+    tv.py                 the phone → TV link (server-sent events)
     config.py             library and app-state folders
 frontend/                 React 19 + TypeScript + Vite
   src/
-    routes/               TanStack Router pages: / (library) and /watch?url=…
+    routes/               TanStack Router pages: / (library), /watch?url=…, /tv and /share (Android)
     lib/player.ts         keeps the separate video and audio streams in sync
     lib/theme.ts          palette and light/dark mode store
     index.css             palettes and pixel primitives (Tailwind v4 + shadcn tokens)

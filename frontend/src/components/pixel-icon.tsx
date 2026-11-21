@@ -27,12 +27,13 @@ const PATHS = {
   retry: 'M3 1h4v1H3z M8 1h1v1H8z M2 2h1v1H2z M7 2h2v1H7z M1 3h1v4H1z M6 3h3v1H6z M8 5h1v2H8z M2 7h1v1H2z M7 7h1v1H7z M3 8h4v1H3z',
   lock: 'M3 1h4v1H3z M2 2h1v2H2z M7 2h1v2H7z M1 4h8v1H1z M1 5h3v2H1z M6 5h3v2H6z M1 7h8v2H1z',
   upload: 'M4 1h2v1H4z M3 2h4v1H3z M2 3h6v1H2z M4 4h2v3H4z M1 8h8v1H1z',
+  tv: 'M2 0h1v1H2z M7 0h1v1H7z M3 1h1v1H3z M6 1h1v1H6z M4 2h2v1H4z M0 3h10v6H0z M1 4v4h8V4z',
 } as const
 
 export type PixelIconName = keyof typeof PATHS
 
 // Icons with cut-out cells; for the rest, overlapping cells must stay filled.
-const HOLLOW = new Set<PixelIconName>(['monitor', 'alert'])
+const HOLLOW = new Set<PixelIconName>(['monitor', 'alert', 'tv'])
 
 export function PixelIcon({ name, className, ...props }: { name: PixelIconName } & SVGProps<SVGSVGElement>) {
   return (

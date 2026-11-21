@@ -4,11 +4,11 @@ from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from . import account, downloads, extractor, proxy
+from . import account, downloads, extractor, proxy, tv
 from .config import LIBRARY
 
 PRODUCTION = os.environ.get("LOCALTUBE_ENV") == "production"
@@ -54,6 +54,23 @@ class PasswordRequest(BaseModel):
     password: str
 
 
+class TvCommand(BaseModel):
+    type: Literal["play", "pause", "resume", "seek", "stop"]
+    url: str | None = None
+    t: float | None = None
+
+
+class TvState(BaseModel):
+    """What a /tv page is showing; `video_id` is None on its idle screen."""
+    video_id: str | None = None
+    url: str | None = None
+    title: str | None = None
+    thumbnail: str | None = None
+    current_time: float = 0
+    duration: float = 0
+    playing: bool = False
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"ok": True}
@@ -72,8 +89,8 @@ def resolve(req: ResolveRequest) -> dict:
 
 
 @app.get("/api/stream/{video_id}/{kind}")
-async def stream(video_id: str, kind: Literal["video", "audio", "muxed"], request: Request, q: int = 1080):
-    return await proxy.stream(video_id, kind, q, request.headers.get("range"))
+async def stream(video_id: str, kind: Literal["video", "audio", "muxed"], request: Request, q: int = 1080, compat: bool = False):
+    return await proxy.stream(video_id, kind, q, request.headers.get("range"), compat)
 
 
 @app.post("/api/downloads")
@@ -174,6 +191,29 @@ def set_like(video_id: str, req: LikeRequest) -> dict:
 @app.post("/api/account/watched/{video_id}", status_code=202)
 def mark_watched(video_id: str) -> None:
     _account(account.mark_watched, video_id)
+
+
+@app.get("/api/tv")
+def tv_status() -> dict:
+    return tv.status()
+
+
+@app.get("/api/tv/events", include_in_schema=False)
+def tv_events() -> StreamingResponse:
+    return StreamingResponse(tv.events(), media_type="text/event-stream", headers={"cache-control": "no-store"})
+
+
+@app.post("/api/tv/command", status_code=204)
+def tv_command(cmd: TvCommand) -> None:
+    if cmd.type == "play" and not cmd.url:
+        raise HTTPException(422, "Nothing to play")
+    if not tv.send(cmd.model_dump(exclude_none=True)):
+        raise HTTPException(409, "No TV is open. Open LocalTube's /tv page on the TV first.")
+
+
+@app.post("/api/tv/state", status_code=204)
+def tv_state(state: TvState) -> None:
+    tv.report(state.model_dump())
 
 
 # In Docker nginx serves /media straight from disk; this route is for local development.

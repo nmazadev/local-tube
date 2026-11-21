@@ -52,3 +52,20 @@ export function withoutStart(url: string): string {
   u.hash = hash.size ? hash.toString() : ''
   return u.toString()
 }
+
+/** The link without YouTube's share-tracking parameters (`si`, `feature`, `pp`). */
+export function withoutTracking(url: string): string {
+  const u = parse(url)
+  if (!u) return url
+  for (const p of ['si', 'feature', 'pp']) u.searchParams.delete(p)
+  return u.toString()
+}
+
+/** The first http(s) link in some shared text ("Check this out https://youtu.be/…"). */
+export function firstUrlIn(...texts: (string | undefined)[]): string | null {
+  for (const text of texts) {
+    const m = text?.match(/https?:\/\/[^\s<>"]+/)
+    if (m) return m[0]
+  }
+  return null
+}

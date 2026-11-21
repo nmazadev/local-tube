@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
 import { DownloadsList } from '@/components/downloads-list'
 import { PixelIcon } from '@/components/pixel-icon'
 import { LibraryGrid } from '@/components/library-grid'
@@ -8,9 +7,7 @@ import { PlayerProvider } from '@/components/player/player-provider'
 import { VideoPlayer } from '@/components/player/video-player'
 import { Skeleton } from '@/components/ui/skeleton'
 import { VideoInfo } from '@/components/video-info'
-import type { Playable } from '@/lib/api'
-import { libraryQuery, resolveQuery } from '@/lib/queries'
-import { startOf, videoIdOf, withoutStart } from '@/lib/youtube'
+import { usePlayable } from '@/lib/queries'
 
 export const Route = createFileRoute('/watch')({
   validateSearch: (search: Record<string, unknown>): { url: string } => ({
@@ -25,15 +22,7 @@ export const Route = createFileRoute('/watch')({
 function WatchPage() {
   const { url } = Route.useSearch()
   const navigate = Route.useNavigate()
-  // A link's start time (`&t=1m30s`) only picks where playback starts; it's the same video.
-  const start = startOf(url)
-  const cleanUrl = withoutStart(url)
-  const id = videoIdOf(url)
-  const library = useQuery(libraryQuery)
-  // Already downloaded: play from disk without asking YouTube at all.
-  const local = library.data?.find((i) => (id ? i.id === id : i.url === cleanUrl))
-  const resolved = useQuery({ ...resolveQuery(cleanUrl), enabled: library.isFetched && !local })
-  const video: Playable | undefined = local ?? resolved.data
+  const { video, error, start, cleanUrl } = usePlayable(url)
 
   // Once the player has taken the start time, drop it from the address so a reload
   // resumes from the saved position instead of jumping back.
@@ -51,12 +40,12 @@ function WatchPage() {
 
   return (
     <div className="flex flex-col gap-10">
-      {resolved.isError ? (
+      {error ? (
         <div className="mx-4 flex items-start gap-4 bg-destructive px-5 py-4 text-destructive-foreground pixel-lift sm:mx-0">
           <PixelIcon name="alert" className="mt-1 size-5" />
           <div>
             <p className="font-heading text-[11px] leading-relaxed">COULDN’T LOAD THIS VIDEO</p>
-            <p className="mt-1">{resolved.error.message}</p>
+            <p className="mt-1">{error.message}</p>
           </div>
         </div>
       ) : video ? (

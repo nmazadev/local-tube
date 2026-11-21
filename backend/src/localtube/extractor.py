@@ -116,14 +116,18 @@ def qualities(info: dict) -> list[int]:
     return sorted(heights)
 
 
-def pick(info: dict, max_height: int) -> dict[str, dict]:
+def pick(info: dict, max_height: int, compat: bool = False) -> dict[str, dict]:
     """Choose formats to play at (up to) `max_height`.
 
     Returns {"video": fmt, "audio": fmt} for split streams, or {"muxed": fmt}
-    when the site only offers combined audio+video files.
+    when the site only offers combined audio+video files. `compat` (TVs) keeps to H.264 video
+    and AAC audio when the video has them: VP9, AV1 and Opus often don't play there.
     """
     videos = _video_only(info)
     audios = [f for f in info["formats"] if _is_https(f) and _has(f, "acodec") and not _has(f, "vcodec")]
+    if compat:
+        videos = [f for f in videos if (f.get("vcodec") or "").startswith("avc1")] or videos
+        audios = [f for f in audios if (f.get("acodec") or "").startswith("mp4a")] or audios
     if videos and audios:
         fitting = [f for f in videos if f["height"] <= max_height]
         top = max(f["height"] for f in fitting) if fitting else min(f["height"] for f in videos)

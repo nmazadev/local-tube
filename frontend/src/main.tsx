@@ -26,3 +26,7 @@ createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </StrictMode>,
 )
+
+// Makes LocalTube installable as an app (and a Share target on Android). Browsers only
+// offer service workers on https or localhost.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) void navigator.serviceWorker.register('/sw.js')

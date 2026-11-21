@@ -67,6 +67,30 @@ export interface Account {
   mark_watched: boolean
 }
 
+/** What an open /tv page is showing (backend `TvState`); `video_id` is null on its idle screen. */
+export interface TvState {
+  video_id: string | null
+  url: string | null
+  title: string | null
+  thumbnail: string | null
+  current_time: number
+  duration: number
+  playing: boolean
+}
+
+export interface TvStatus {
+  /** A /tv page is open somewhere. */
+  connected: boolean
+  state: TvState | null
+}
+
+export type TvCommand =
+  | { type: 'play'; url: string; t?: number }
+  | { type: 'pause' }
+  | { type: 'resume' }
+  | { type: 'stop' }
+  | { type: 'seek'; t: number }
+
 async function request<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, ...rest } = init
   const res = await fetch(path, {
@@ -108,12 +132,16 @@ export const api = {
   setLiked: (id: string, liked: boolean) =>
     request<{ liked: boolean }>(`/api/account/like/${encodeURIComponent(id)}`, { method: 'PUT', json: { liked } }),
   markWatched: (id: string) => request<null>(`/api/account/watched/${encodeURIComponent(id)}`, { method: 'POST' }),
+  tv: () => request<TvStatus>('/api/tv'),
+  tvCommand: (command: TvCommand) => request<null>('/api/tv/command', { method: 'POST', json: command }),
+  tvState: (state: TvState) => request<null>('/api/tv/state', { method: 'POST', json: state }),
 }
 
-/** Media URLs for a video at a given max height. */
-export function sourcesFor(video: Playable, q: number): { video: string; audio: string | null } {
+/** Media URLs for a video at a given max height. `compat` asks for H.264 + AAC (TVs). */
+export function sourcesFor(video: Playable, q: number, compat = false): { video: string; audio: string | null } {
   if (video.media) return { video: video.media, audio: null }
   const base = `/api/stream/${encodeURIComponent(video.id)}`
-  if ('mode' in video && video.mode === 'muxed') return { video: `${base}/muxed?q=${q}`, audio: null }
-  return { video: `${base}/video?q=${q}`, audio: `${base}/audio?q=${q}` }
+  const query = `q=${q}${compat ? '&compat=1' : ''}`
+  if ('mode' in video && video.mode === 'muxed') return { video: `${base}/muxed?${query}`, audio: null }
+  return { video: `${base}/video?${query}`, audio: `${base}/audio?${query}` }
 }

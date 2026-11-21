@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ShareRouteImport } from './routes/share'
+import { Route as TvRouteImport } from './routes/tv'
 import { Route as WatchRouteImport } from './routes/watch'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +25,16 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShareRoute = ShareRouteImport.update({
+  id: '/share',
+  path: '/share',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TvRoute = TvRouteImport.update({
+  id: '/tv',
+  path: '/tv',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WatchRoute = WatchRouteImport.update({
   id: '/watch',
   path: '/watch',
@@ -32,30 +44,38 @@ const WatchRoute = WatchRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
+  '/share': typeof ShareRoute
+  '/tv': typeof TvRoute
   '/watch': typeof WatchRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
+  '/share': typeof ShareRoute
+  '/tv': typeof TvRoute
   '/watch': typeof WatchRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
+  '/share': typeof ShareRoute
+  '/tv': typeof TvRoute
   '/watch': typeof WatchRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings' | '/watch'
+  fullPaths: '/' | '/settings' | '/share' | '/tv' | '/watch'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings' | '/watch'
-  id: '__root__' | '/' | '/settings' | '/watch'
+  to: '/' | '/settings' | '/share' | '/tv' | '/watch'
+  id: '__root__' | '/' | '/settings' | '/share' | '/tv' | '/watch'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SettingsRoute: typeof SettingsRoute
+  ShareRoute: typeof ShareRoute
+  TvRoute: typeof TvRoute
   WatchRoute: typeof WatchRoute
 }
 
@@ -75,6 +95,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/share': {
+      id: '/share'
+      path: '/share'
+      fullPath: '/share'
+      preLoaderRoute: typeof ShareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tv': {
+      id: '/tv'
+      path: '/tv'
+      fullPath: '/tv'
+      preLoaderRoute: typeof TvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/watch': {
       id: '/watch'
       path: '/watch'
@@ -88,6 +122,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SettingsRoute: SettingsRoute,
+  ShareRoute: ShareRoute,
+  TvRoute: TvRoute,
   WatchRoute: WatchRoute,
 }
 export const routeTree = rootRouteImport

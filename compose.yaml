@@ -6,8 +6,9 @@ services:
     init: true
     # Downloaded files on the host are owned by this user.
     user: "${UID:-1000}:${GID:-1000}"
+    # Only this machine by default; BIND=0.0.0.0 opens it to the home network (phone, TV).
     ports:
-      - "127.0.0.1:${PORT:-8080}:8080"
+      - "${BIND:-127.0.0.1}:${PORT:-8080}:8080"
     volumes:
       - "${LIBRARY_DIR:?Set LIBRARY_DIR in .env to the folder where downloaded videos are stored}:/library"
     restart: unless-stopped

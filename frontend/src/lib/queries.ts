@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { api, isActiveJob, type Account } from './api'
+import { api, isActiveJob, type Account, type Playable, type TvCommand } from './api'
+import { startOf, videoIdOf, withoutStart } from './youtube'
 
 export const libraryQuery = queryOptions({
   queryKey: ['library'],
@@ -23,6 +24,22 @@ export const resolveQuery = (url: string) =>
     staleTime: 3 * 60 * 60 * 1000,
     retry: false,
   })
+
+/**
+ * What to play for a link: the downloaded copy when it's in the library (no YouTube request
+ * at all), otherwise the resolved stream. A link's start time (`&t=1m30s`) only picks where
+ * playback starts; it's the same video.
+ */
+export function usePlayable(url: string) {
+  const start = startOf(url)
+  const cleanUrl = withoutStart(url)
+  const id = videoIdOf(url)
+  const library = useQuery(libraryQuery)
+  const local = library.data?.find((i) => (id ? i.id === id : i.url === cleanUrl))
+  const resolved = useQuery({ ...resolveQuery(cleanUrl), enabled: library.isFetched && !local })
+  const video: Playable | undefined = local ?? resolved.data
+  return { video, error: resolved.isError ? resolved.error : null, start, cleanUrl }
+}
 
 export function useStartDownload() {
   const qc = useQueryClient()
@@ -129,4 +146,21 @@ export function useLibraryRefreshOnDownload() {
     if (done > previous.current) qc.invalidateQueries({ queryKey: libraryQuery.queryKey })
     previous.current = done
   }, [done, qc])
+}
+
+export const tvQuery = queryOptions({
+  queryKey: ['tv'],
+  queryFn: api.tv,
+  // Close polling while a TV is open, so the remote shows up and follows it quickly.
+  refetchInterval: (q) => (q.state.data?.connected ? 2000 : 15000),
+})
+
+export function useTvCommand() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (command: TvCommand) => api.tvCommand(command),
+    // The TV reports its new state right away; fetch it a moment later.
+    onSettled: () => setTimeout(() => void qc.invalidateQueries({ queryKey: tvQuery.queryKey }), 800),
+    onError: (e) => toast.error(e.message),
+  })
 }

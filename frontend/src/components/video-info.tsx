@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { LikeButton } from '@/components/like-button'
 import { PixelIcon } from '@/components/pixel-icon'
+import { PlayOnTvButton } from '@/components/tv-remote'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { isActiveJob, type Playable } from '@/lib/api'
@@ -43,6 +44,7 @@ export function VideoInfo({ video }: { video: Playable }) {
         </p>
         <div className="flex flex-wrap gap-5">
           <LikeButton videoId={video.id} />
+          <PlayOnTvButton video={video} />
           <DownloadButton video={video} />
           {video.url && (
             <Button variant="outline" asChild>

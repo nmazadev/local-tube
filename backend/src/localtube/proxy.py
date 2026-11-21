@@ -54,13 +54,13 @@ async def _open(fmt: dict, range_header: str | None) -> httpx.Response:
     return await client.send(client.build_request("GET", fmt["url"], headers=headers), stream=True)
 
 
-async def stream(video_id: str, kind: str, max_height: int, range_header: str | None) -> StreamingResponse:
+async def stream(video_id: str, kind: str, max_height: int, range_header: str | None, compat: bool = False) -> StreamingResponse:
     upstream = None
     rejected = None
     for attempt in range(2):
         try:
             info, fetched_at = await run_in_threadpool(extractor.get, video_id, rejected)
-            fmt = extractor.pick(info, max_height).get(kind)
+            fmt = extractor.pick(info, max_height, compat).get(kind)
         except KeyError:
             raise HTTPException(404, "Unknown video, resolve it first")
         except extractor.ExtractError as e:

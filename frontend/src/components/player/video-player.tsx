@@ -16,9 +16,10 @@ function pickQuality(qualities: number[], preferred: number): number | null {
 
 /**
  * Render with `key={video.id}`: a new video gets a fresh player. `startAt` (from a link's
- * timestamp) overrides the saved position, and seeks when it changes later.
+ * timestamp) overrides the saved position, and seeks when it changes later. `tv` fills the
+ * screen, asks for TV-safe codecs and leaves the keys to the /tv page.
  */
-export function VideoPlayer({ video, startAt = null }: { video: Playable; startAt?: number | null }) {
+export function VideoPlayer({ video, startAt = null, tv = false }: { video: Playable; startAt?: number | null; tv?: boolean }) {
   const player = usePlayer()
   const { playing, buffering, error } = usePlayerState()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -30,7 +31,7 @@ export function VideoPlayer({ video, startAt = null }: { video: Playable; startA
   const [menuOpen, setMenuOpen] = useState(false)
   const idle = useIdle(containerRef, playing && !menuOpen)
 
-  useKeyboardShortcuts(player, toggleFullscreen)
+  useKeyboardShortcuts(player, toggleFullscreen, !tv)
   usePersistence(player, video.id)
   useMediaSession(player, video)
   useMarkWatched(player, video.id)
@@ -39,7 +40,7 @@ export function VideoPlayer({ video, startAt = null }: { video: Playable; startA
 
   // (Re)load when the source changes: the first time at the saved position, afterwards
   // (quality switch, or the download finishing) at the current time and play state.
-  const { video: videoSrc, audio: audioSrc } = sourcesFor(video, quality ?? 1080)
+  const { video: videoSrc, audio: audioSrc } = sourcesFor(video, quality ?? 1080, tv)
   const loaded = useRef(false)
   const [resumeAt] = useState(() => startAt ?? positions.resumeAt(video.id, video.duration))
   // Bumped by "Retry" to reload the same sources.
@@ -67,7 +68,7 @@ export function VideoPlayer({ video, startAt = null }: { video: Playable; startA
 
   return (
     // The outline sits outside the always-dark player so it uses the page's colors.
-    <div className="sm:pixel-lift">
+    <div className={cn(!tv && 'sm:pixel-lift')}>
       <div
         ref={(el) => {
           containerRef.current = el
@@ -76,7 +77,8 @@ export function VideoPlayer({ video, startAt = null }: { video: Playable; startA
         // Always dark: the controls sit on top of video.
         className={cn(
           'dark group relative aspect-video max-h-[78vh] w-full overflow-hidden bg-black select-none',
-          isFullscreen && 'max-h-none',
+          (isFullscreen || tv) && 'max-h-none',
+          tv && 'aspect-auto h-dvh',
           idle && 'cursor-none',
         )}
       >

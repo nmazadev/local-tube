@@ -6,7 +6,7 @@ import type { Player } from '@/lib/player'
 import { accountQuery } from '@/lib/queries'
 import { positions, storage } from '@/lib/storage'
 
-/** True after the mouse has been still over `ref` for a while (only while `active`). */
+/** True after the mouse has been still over `ref`, and no key pressed, for a while (only while `active`). */
 export function useIdle(ref: RefObject<HTMLElement | null>, active: boolean, ms = 2500) {
   const [idle, setIdle] = useState(false)
   useEffect(() => {
@@ -23,12 +23,13 @@ export function useIdle(ref: RefObject<HTMLElement | null>, active: boolean, ms 
     }
     const leave = () => setIdle(true)
     el.addEventListener('mousemove', wake)
-    el.addEventListener('keydown', wake)
+    // Keyboard shortcuts and TV remote keys work from anywhere on the page.
+    document.addEventListener('keydown', wake)
     el.addEventListener('mouseleave', leave)
     return () => {
       window.clearTimeout(timer)
       el.removeEventListener('mousemove', wake)
-      el.removeEventListener('keydown', wake)
+      document.removeEventListener('keydown', wake)
       el.removeEventListener('mouseleave', leave)
     }
   }, [ref, active, ms])
@@ -50,8 +51,9 @@ export function useFullscreen(ref: RefObject<HTMLElement | null>) {
 }
 
 /** YouTube-style shortcuts, ignored while typing in a field. */
-export function useKeyboardShortcuts(player: Player, toggleFullscreen: () => void) {
+export function useKeyboardShortcuts(player: Player, toggleFullscreen: () => void, enabled = true) {
   useEffect(() => {
+    if (!enabled) return
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return
       const target = e.target as HTMLElement
@@ -81,7 +83,7 @@ export function useKeyboardShortcuts(player: Player, toggleFullscreen: () => voi
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [player, toggleFullscreen])
+  }, [player, toggleFullscreen, enabled])
 }
 
 /** Persist volume/mute, and the playback position per video. */

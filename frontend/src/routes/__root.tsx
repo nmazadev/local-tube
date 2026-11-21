@@ -1,7 +1,8 @@
 import { lazy, Suspense } from 'react'
-import { createRootRoute, Link, Outlet, useSearch } from '@tanstack/react-router'
+import { createRootRoute, Link, Outlet, useLocation, useSearch } from '@tanstack/react-router'
 import { PixelIcon } from '@/components/pixel-icon'
 import { ThemeMenu } from '@/components/theme-menu'
+import { TvRemoteBar } from '@/components/tv-remote'
 import { UrlForm } from '@/components/url-form'
 import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/sonner'
@@ -14,6 +15,16 @@ export const Route = createRootRoute({ component: RootLayout })
 function RootLayout() {
   useLibraryRefreshOnDownload()
   const currentUrl = useSearch({ strict: false }).url
+  const pathname = useLocation({ select: (l) => l.pathname })
+  // The TV page is the whole screen: no header, no remote for itself.
+  if (pathname === '/tv') {
+    return (
+      <>
+        <Outlet />
+        <Toaster position="bottom-center" />
+      </>
+    )
+  }
   return (
     <>
       <header className="sticky top-0 z-20 border-b-3 bg-card">
@@ -39,6 +50,7 @@ function RootLayout() {
       <main className="mx-auto flex max-w-6xl flex-col gap-10 px-0 pt-0 pb-16 sm:px-6 sm:pt-7">
         <Outlet />
       </main>
+      <TvRemoteBar />
       <Toaster position="bottom-center" />
       <Suspense>
         <Devtools />
